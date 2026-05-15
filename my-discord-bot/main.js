@@ -221,7 +221,7 @@ client.on("messageCreate", async (msg) => {
                 "`bday_user` — user ID за birthday\n" +
                 "`mania_main_channel` — главен канал за Mania известия (опционален)");
             }
-            await setConfig(msg.guild.id, key, value);
+            await setConfig(msg.guild.id, key, value, msg.guild.name);
             return msg.reply(`✅ Конфигурацията е запазена: \`${key}\` = \`${value}\``);
         }
 

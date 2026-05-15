@@ -263,7 +263,6 @@ client.on("messageCreate", async (msg) => {
             return msg.reply(`✅ Guild **${key.toUpperCase()}** added!\n🎭 Role: <@&${roleId}>\n📋 Plan channel: <#${planChannelId}>\n📣 Notify channel: ${notifyChannelId ? `<#${notifyChannelId}>` : '⚠️ not set'}`);
         }
 
-        return await handleCommands(msg, pool);
         if (cmd === "!mania-removeguild") {
             if (!msg.member.permissions.has("Administrator")) return;
             const key = args[0];
@@ -293,6 +292,8 @@ client.on("messageCreate", async (msg) => {
             const embed = new EB2().setTitle("⚔️ Mania Guilds").setDescription(maniaGuilds.join("\n\n")).setColor("#FF4500");
             return msg.reply({ embeds: [embed] });
         }
+
+        return await handleCommands(msg, pool);
 
 
     } 

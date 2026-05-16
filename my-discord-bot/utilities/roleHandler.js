@@ -14,10 +14,34 @@ for (let i = 900; i >= 50; i -= 50) {
 /**
  * 1. ПОСРЕЩАНЕ И ВЕРИФИКАЦИЯ
  */
+async function getOrCreateConfigRole(guild, configKey, roleName, roleColor) {
+  // Взима ролята от конфига, ако не е зададена — търси по ime, ако я няма — създава я
+  const { getConfig, setConfig } = require('./guildConfig');
+  let role = await getRole(guild, configKey);
+  if (!role) {
+    // Търсим по ime
+    role = guild.roles.cache.find(r => r.name === roleName);
+    if (!role) {
+      // Създаваме ролята автоматично
+      try {
+        role = await guild.roles.create({ name: roleName, color: roleColor, reason: `Auto-created by bot` });
+        console.log(`✅ Created role "${roleName}" in ${guild.name}`);
+      } catch (err) {
+        console.error(`❌ Could not create role "${roleName}":`, err.message);
+        return null;
+      }
+    }
+    // Запазваме ID-то в конфига за следващия път
+    await setConfig(guild.id, configKey, role.id, guild.name);
+    console.log(`✅ Saved ${configKey} = ${role.id} for ${guild.name}`);
+  }
+  return role;
+}
+
 async function handleNewMember(member) {
   try {
-    // ✅ МУЛТИ-СЪРВЪР: взима ролята от конфига на ТОЗИ сървър
-    const rookieRole = await getRole(member.guild, 'rookies_role');
+    // ✅ Взима или създава автоматично Rookie ролята
+    const rookieRole = await getOrCreateConfigRole(member.guild, 'rookies_role', 'Rookie', '#95a5a6');
     // ✅ МУЛТИ-СЪРВЪР: взима канала от конфига на ТОЗИ сървър
     const welcomeChannel = await getChannel(member.guild, 'welcome_channel');
 
@@ -29,8 +53,11 @@ async function handleNewMember(member) {
       .setDescription(
         `Ahoy, pirate ${member}! 🏴‍☠️\n\n` +
         `Welcome to **${member.guild.name}**!\n\n` +
+        `📜 **The Pirate Code:** Check <#rules-and-info> or risk walking the plank!\n\n` +
+        `💰 **Bounties:** Drop your in-game profile pic in <#bounties> to claim your reward!\n\n` +
+        `👋 **The Tavern:** Say hi in <#general-chat>, but first put a NickName!\n\n` +
         `📝 **Nickname:** To unlock the server, press the button below and enter your nickname.\n` +
-        `*Note: Your name should include the guild name or tag.*`
+        `*Note: Your name should include the guild name or tag (e.g., TS Hosted, Thousand Sunny Hosted).*`
       )
       .setColor("#2ECC71")
       .setThumbnail(member.user.displayAvatarURL())
@@ -86,8 +113,8 @@ async function handleInteraction(interaction) {
 
     try {
       // ✅ МУЛТИ-СЪРВЪР: взима ролите от конфига на ТОЗИ сървър
-      const playerRole = await getRole(guild, 'player_role');
-      const rookieRole = await getRole(guild, 'rookies_role');
+      const playerRole = await getOrCreateConfigRole(guild, 'player_role', 'Player', '#2ecc71');
+      const rookieRole = await getOrCreateConfigRole(guild, 'rookies_role', 'Rookie', '#95a5a6');
 
       if (playerRole && member.roles.cache.has(playerRole.id)) {
         return interaction.reply({ content: "⚠️ You already have a nickname!", ephemeral: true });

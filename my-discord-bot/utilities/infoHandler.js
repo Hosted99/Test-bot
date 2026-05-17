@@ -19,83 +19,52 @@ const sendBotManual = async (guild) => {
         .setThumbnail(guild.iconURL({ dynamic: true }))
         .addFields(
             {
-                name: "🌐 1. AI Translator (#ai-translator)",
-                value: "• **Auto-Translate:** Write in any language → instantly translated to 🇺🇸 English.\n" +
-                       "• **Reverse:** Reply to a translated message in English → translates back to the original language."
+                name: "🌐 1. AI Translator",
+                value: "• **Auto:** Write in any language in the translator channel → instantly translated to 🇺🇸 English.\n• **Reverse:** Reply to a translated message in English → translates back to the original language."
             },
             {
                 name: "🛂 2. Nickname & Verification",
-                value: "• New members start as **Rookies** with limited access.\n" +
-                       "• Click the **'Nickname'** button in the welcome channel.\n" +
-                       "• Include your guild tag (e.g. `TS Luffy` or `Thousand Sunny Luffy`).\n" +
-                       "• Automatically grants **Player** role and unlocks the server! 🔓"
+                value: "• New members start as **Rookies** with limited access.\n• Click the **'Nickname'** button in the welcome channel.\n• Include your guild tag (e.g. `TS Luffy` or `Thousand Sunny Luffy`).\n• Automatically grants **Player** role and unlocks the server! 🔓"
             },
             {
                 name: "⚔️ 3. Mania Battle System",
-                value: "• `mania-plan g1/g2/all` — Start recruitment with ✅ ❌ ⏳ reactions.\n" +
-                       "• `mania-list g1/g2` — Live report of confirmed players + pings missing.\n" +
-                       "• `mania-dm g1/g2` — DM everyone who hasn't voted yet.\n" +
-                       "• `mania-strategy` — Post the battle plan and ping @everyone."
+                value: "• `mania-plan <key>/all` — Start recruitment with ✅ ❌ ⏳ reactions.\n• `mania-list <key>` — Live report of confirmed players + pings missing.\n• `mania-dm <key>` — DM everyone who hasn't voted yet.\n• `mania-strategy` — Post the battle plan and ping @everyone.\n• `!mania-addguild <key> @role #plan-ch #notify-ch` — Add a guild *(Admin)*\n• `!mania-guilds` / `!mania-removeguild <key>` — Manage guilds *(Admin)*"
             },
             {
                 name: "⚓ 4. Leveling & Pirate Ranks",
-                value: "• Chat to earn XP. Images grant **Bonus XP**! 🖼️\n" +
-                       "• 220+ unique ranks from **Silent Snail** 🐌 to **Grass Avoider** 🌱❌.\n" +
-                       "• `!rank` — See your progress bar `[▇▇▇——]` and current title."
+                value: "• Chat to earn XP. Images grant **Bonus XP**! 🖼️\n• 220+ unique ranks from **Silent Snail** 🐌 to **Grass Avoider** 🌱❌.\n• `!rank` — See your progress bar `[▇▇▇——]` and current title.\n• `!top` — Top 10 most active on this server *(Admin)*\n• `!setconfig leveling_enabled false` — Disable XP for this server *(Admin)*"
             },
             {
                 name: "🚢 5. Belly Rush Registration",
-                value: "• Use buttons to join your ship when the panel is posted.\n" +
-                       "• `!want <ship-name>` — Request a **permanent** spot (never gets reset).\n" +
-                       "• Ships are fully customizable by admins per server."
+                value: "• Use buttons to join your ship when the panel is posted.\n• `!want <ship-name>` — Request a **permanent** spot in the belly-rush-roles channel.\n• `!setup` — Manually send the panel *(Admin)*\n• `!ship-add <name> <emoji> @role` — Add a ship *(Admin)*\n• `!ship-captain @user <ship>` — Set a permanent captain *(Admin)*"
             },
             {
-                name: "☠️ 6. Bounty & Wanted System",
-                value: "• `!wanted [@user]` — View a pirate's Wanted Poster.\n" +
-                       "• `!setbounty @user <amount>` — (Admin) Set a bounty.\n" +
-                       "• `!resetbounty @user` — (Admin) Reset bounty to ฿0."
+                name: "⚙️ 6. Repair Ship",
+                value: "• `repair @ship` — Send a random repair message *(in repair channel)*\n• `!ship-addrepair <ship> <msg>` — Add repair message, use `{user}` for @mention *(Admin)*\n• `!ship-repairs <ship>` — List all repair messages with IDs *(Admin)*\n• `!ship-removerepair <id>` — Remove a repair message *(Admin)*"
             },
             {
-                name: "⚔️ 7. Hero Guides (#unit-build)",
-                value: "• `!hero <name>` — Full build guide (Role, Seals, Haki, Equipment).\n" +
-                       "• `!hero-list` — View all available heroes."
+                name: "☠️ 7. Bounty & Wanted System",
+                value: "• `!wanted [@user]` — View a pirate's Wanted Poster.\n• `!setbounty @user <amount>` — Set a bounty and assign tier role *(Mod/Admin)*\n• `!resetbounty @user` — Reset bounty to ฿0 *(Mod/Admin)*"
             },
             {
-                name: "⏰ 8. Reminders & Events",
-                value: "• **Auto-Pings** for Mania and Belly Rush.\n" +
-                       "• `!remind <cron> <text>` — Create custom reminders.\n" +
-                       "• `!reminders` — List your active reminders.\n" +
-                       "• `!cron` — Cron format guide."
+                name: "⚔️ 8. Hero Guides",
+                value: "• `!hero <name>` — Full build guide (Role, Seals, Haki, Equipment) *(in unit-build channel)*\n• `!hero-list` — View all available heroes."
             },
             {
-                name: "🎖️ 9. Role Management (Admin)",
-                value: "• `!addrole @user <role>` — Assign a role.\n" +
-                       "• `!removerole @user <role>` — Remove a role.\n" +
-                       "• `!addroleallts @role` — Sync roles for everyone with **ᐪˢ☠️**.\n" +
-                       "• `!addroleallgm @role` — Sync roles for everyone with **ᴳᴹ☠️**."
+                name: "⏰ 9. Reminders & Events",
+                value: "• Auto-pings for Mania and Belly Rush.\n• `!remind <cron> <text>` — Create custom reminders.\n• `!reminders` — List your active reminders.\n• `!allreminders` — View all schedules.\n• `!cron` — Cron format guide."
             },
             {
-                name: "🛡️ 10. Admin Control",
-                value: "• `!top` — Top 10 most active pirates.\n" +
-                       "• `!sync` — Manually save all XP data to the database.\n" +
-                       "• `!clear <1-100>` — Bulk delete messages.\n" +
-                       "• `!say <text>` / `!sendto #channel <text>` — Send messages as the bot.\n" +
-                       "• `!setconfig <key> <value>` — Configure the bot for this server.\n" +
-                       "• `!getconfig` — View current server configuration."
+                name: "🎖️ 10. Role Management (Admin)",
+                value: "• `!addrole @user <role>` — Assign a role.\n• `!removerole @user <role>` — Remove a role.\n• `!addroleallts @role` — Sync roles for everyone with **ᐪˢ☠️**.\n• `!addroleallgm @role` — Sync roles for everyone with **ᴳᴹ☠️**."
             },
             {
-                name: "🚢 11. Ship Management (Admin)",
-                value: "• `!ship-add <name> <emoji> <@role>` — Add a new ship.\n" +
-                       "• `!ship-remove <name>` — Remove a ship.\n" +
-                       "• `!ship-list` — View all ships and their crews.\n" +
-                       "• `!ship-captain @user <ship>` — Set a permanent captain.\n" +
-                       "• `!ship-uncaptain @user` — Remove captain status."
+                name: "🛡️ 11. Admin Control",
+                value: "• `!top` — Top 10 most active pirates.\n• `!sync` — Manually save all XP data.\n• `!clear <1-100>` — Bulk delete messages.\n• `!say <text>` / `!sendto #channel <text>` — Send messages as the bot."
             },
             {
-                name: "⚔️ 12. Mania Guild Management (Admin)",
-                value: "• `!mania-addguild <key> @role #channel` — Add a guild (e.g. g3).\n" +
-                       "• `!mania-removeguild <key>` — Remove a guild.\n" +
-                       "• `!mania-guilds` — List all configured guilds."
+                name: "⚙️ 12. Server Configuration (Admin)",
+                value: "• `!setconfig <key> <value>` — Configure the bot for this server.\n• `!getconfig` — View current config.\n• `!checkconfig` — Check what's configured ✅ and what's missing ❌."
             }
         )
         .setFooter({ text: "Sailing Kingdom Engine • Automatically updated on startup" })

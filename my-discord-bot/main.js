@@ -15,6 +15,7 @@ const { handleNewMember, handleRoleCommands } = require("./utilities/roleHandler
 const { sendBotManual } = require("./utilities/infoHandler");
 const { logDeletedMessage } = require("./utilities/logger");
 const memeSystem = require('./utilities/meme.js');
+const { initTranslateSystem } = require('./utilities/translate');
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 const translationCooldown = new Set();

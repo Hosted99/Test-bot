@@ -12,7 +12,7 @@ Settings → Advanced → Developer Mode → десен клик на канал
 **2. Пълна конфигурация (само Админ):**
 ```
 !setconfig level_up_channel         <id>  ← канал за level-up съобщения
-!setconfig log_channel              <id>  ← канал за XP логове
+!setconfig log_channel              <id>  ← канал за db логове
 !setconfig stats_channel            <id>  ← канал за !top класация
 !setconfig admin_log_channel        <id>  ← канал за модерация логове
 !setconfig welcome_channel          <id>  ← канал за нови членове

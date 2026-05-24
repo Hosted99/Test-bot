@@ -208,7 +208,7 @@ Settings → Advanced → Developer Mode → right-click channel/role → **Copy
 **2. Full configuration (Admin only):**
 ```
 !setconfig level_up_channel         <id>  ← channel for level-up messages
-!setconfig log_channel              <id>  ← channel for XP logs
+!setconfig log_channel              <id>  ← channel for db logs
 !setconfig stats_channel            <id>  ← channel for !top leaderboard
 !setconfig admin_log_channel        <id>  ← channel for moderation logs
 !setconfig welcome_channel          <id>  ← channel for new members

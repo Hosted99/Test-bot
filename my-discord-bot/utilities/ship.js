@@ -67,7 +67,6 @@ async function sendShipPanelDirect(channel) {
         .setImage('https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExczVjbHA5emc1M3NuYmNybXZhNjlsNHk2OGtjbHMxODRzb2U0dGg1ZCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/7zmLy0sYn9Y8O6BrlF/giphy.gif')
         .setTimestamp();
 
-    // Добавяме бутон за всеки кораб (max 4 бутона на ред)
     const rows = [];
     let currentRow = new ActionRowBuilder();
     let count = 0;
@@ -86,7 +85,6 @@ async function sendShipPanelDirect(channel) {
         count++;
     }
 
-    // Reset бутон на отделен ред
     rows.push(currentRow);
     rows.push(
         new ActionRowBuilder().addComponents(
@@ -106,12 +104,20 @@ async function sendShipPanelDirect(channel) {
 
 async function handleShipInteraction(interaction) {
     if (!interaction.isButton()) return;
-    const { customId, member, guild, user } = interaction;
+    const { customId, member, guild } = interaction;
+
+    // Взимаме специфичната роля за този конкретен сървър от DB
+    const modRoleId = await getConfig(guild.id, 'mod_role');
+    const isAdmin = member.permissions.has('Administrator');
+    const isOwner = guild.ownerId === member.id;
+    const isMod = modRoleId ? member.roles.cache.has(modRoleId) : false;
+    
+    // Проверка за достъп до бутоните (Модераторска роля, Админ или Собственик)
+    const isModOrAdmin = isAdmin || isOwner || isMod;
 
     // RESET FLEET / НУЛИРАНЕ НА ФЛОТА
     if (customId === 'ship_reset') {
-        const isAdmin = member.permissions.has('Administrator');
-        if (!isAdmin) {
+        if (!isModOrAdmin) {
             return interaction.reply({ content: '❌ No permission.', flags: 64 });
         }
 
@@ -146,34 +152,32 @@ async function handleShipInteraction(interaction) {
         const role = guild.roles.cache.get(ship.role_id);
         if (!role) return interaction.reply({ content: '❌ Ship role not found. Contact an admin.', flags: 64 });
 
-        // Already in this ship? / Вече в този кораб?
         if (member.roles.cache.has(ship.role_id)) {
             return interaction.reply({ content: 'ℹ️ You are already in this ship.', flags: 64 });
         }
 
-        // Permanent crew? / Постоянен екипаж?
-        const permCheck = await pool.query(
-            'SELECT 1 FROM permanent_crew WHERE guild_id = $1 AND user_id = $2',
-            [guild.id, member.id]
-        );
-        if (permCheck.rowCount > 0) {
-            return interaction.reply({ content: '⚠️ You are permanent crew. Your spot is already secured!', flags: 64 });
-        }
+        // Ако е оторизиран модератор/администратор, прескача ограниченията за пълен кораб
+        if (!isModOrAdmin) {
+            const permCheck = await pool.query(
+                'SELECT 1 FROM permanent_crew WHERE guild_id = $1 AND user_id = $2',
+                [guild.id, member.id]
+            );
+            if (permCheck.rowCount > 0) {
+                return interaction.reply({ content: '⚠️ You are permanent crew. Your spot is already secured!', flags: 64 });
+            }
 
-        // Captain? / Капитан?
-        const captains = await getCaptains(guild.id);
-        if (captains.includes(member.id)) {
-            return interaction.reply({ content: '⚠️ Captains cannot switch ships.', flags: 64 });
-        }
+            const captains = await getCaptains(guild.id);
+            if (captains.includes(member.id)) {
+                return interaction.reply({ content: '⚠️ Captains cannot switch ships.', flags: 64 });
+            }
 
-        // Is the ship full? / Пълен ли е корабът?
-        if (role.members.size >= MAX_MEMBERS) {
-            return interaction.reply({ content: `❌ **${ship.ship_name}** is full (${MAX_MEMBERS}/${MAX_MEMBERS}).`, flags: 64 });
+            if (role.members.size >= MAX_MEMBERS) {
+                return interaction.reply({ content: `❌ **${ship.ship_name}** is full (${MAX_MEMBERS}/${MAX_MEMBERS}).`, flags: 64 });
+            }
         }
 
         await interaction.deferReply({ flags: 64 });
 
-        // Remove all old ship roles / Махаме стари корабни роли
         for (const s of ships) {
             if (member.roles.cache.has(s.role_id)) {
                 await member.roles.remove(s.role_id).catch(() => {});
@@ -196,17 +200,21 @@ async function handleMessage(message) {
     const args = content.split(/\s+/);
     const cmd = args[0]?.toLowerCase();
 
-    // Check if user is Mod or Admin / Проверяваме дали е Мод или Админ
-    const { getConfig } = require('./guildConfig');
-    const modRoleId = await getConfig(message.guild.id, 'mod_role');
+    // 1. Взимаме mod_role от базата конкретно за ТОЗИ сървър (message.guild.id)
+    const modRoleId = await getConfig(message.guild.id, 'mod_role');[cite: 1]
+    
+    // 2. Вградени Discord права като бекъп спасителен пояс
     const isAdmin = message.member.permissions.has('Administrator');
-    // Fetch fresh member to ensure roles are up to date / Взимаме свеж member
-    const freshMember = await message.guild.members.fetch(message.author.id).catch(() => message.member);
-    const isMod = modRoleId ? freshMember.roles.cache.has(modRoleId) : false;
-    const isModOrAdmin = isAdmin || isMod;
+    const isOwner = message.guild.ownerId === message.author.id;
+    
+    // 3. Проверяваме дали потребителят притежава уникалната роля за този сървър
+    const freshMember = await message.guild.members.fetch(message.author.id).catch(() => message.member);[cite: 1]
+    const isMod = modRoleId ? freshMember.roles.cache.has(modRoleId) : false;[cite: 1]
+    
+    // Потребителят е легитимен, ако има ролята от DB, ако е админ или собственик на сървъра
+    const isModOrAdmin = isAdmin || isOwner || isMod;
 
-    // !want <ship-name> — request permanent crew spot / заявка за постоянно място
-    // Работи в belly_rush_roles_channel (или belly_rush_channel ако не е зададен)
+    // !want <ship-name> — request permanent crew spot
     if (cmd === '!want') {
         const rolesChannel = await getChannel(message.guild, 'belly_rush_roles_channel');
         const bellyChannel = await getChannel(message.guild, 'belly_rush_channel');
@@ -225,12 +233,8 @@ async function handleMessage(message) {
             return message.reply(`❌ Ship not found. Available ships: ${list || 'none'}`);
         }
 
-        // Send approval request to admin_log_channel / Изпращаме заявка за одобрение
-        const { getConfig } = require('./guildConfig');
-        const adminLogId = await getConfig(message.guild.id, 'admin_log_channel');
-        const adminLog = adminLogId ? message.guild.channels.cache.get(adminLogId) : null;
-
-        const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+        const adminLogId = await getConfig(message.guild.id, 'admin_log_channel');[cite: 1]
+        const adminLog = adminLogId ? message.guild.channels.cache.get(adminLogId) : null;[cite: 1]
 
         const requestEmbed = new EmbedBuilder()
             .setTitle('⚓ Permanent Crew Request')
@@ -258,17 +262,15 @@ async function handleMessage(message) {
             await adminLog.send({ embeds: [requestEmbed], components: [row] });
             return message.reply(`📋 Your request to join **${ship.emoji} ${ship.ship_name}** as permanent crew has been sent for approval!`);
         } else {
-            // No admin log channel configured — auto-approve
-            // Няма admin log канал — авто-одобрение
             await addPermanentCrew(message.guild, message.member, ship, pool);
             return message.reply(`✅ You are now **PERMANENT** crew of **${ship.emoji} ${ship.ship_name}**!`);
         }
     }
 
-    // ── ADMIN COMMANDS / ADMIN КОМАНДИ ──
+    // ── ПРОВЕРКА ЗА ПРАВА НА АДМИН КОМАНДИТЕ ──
     if (!isModOrAdmin && cmd !== '!ship-list') return message.reply('❌ Moderators and Admins only!');
 
-    // !ship-add <name> <emoji> <@role> — add a new ship / добавя нов кораб
+    // !ship-add <name> <emoji> <@role>
     if (cmd === '!ship-add') {
         const shipName = args[1];
         const emoji = args[2];
@@ -291,7 +293,7 @@ async function handleMessage(message) {
         return message.reply(`✅ Ship **${emoji} ${shipName}** added! Use \`!ship-list\` to see all ships.`);
     }
 
-    // !ship-remove <name> — remove a ship / маха кораб
+    // !ship-remove <name>
     if (cmd === '!ship-remove') {
         const shipName = args.slice(1).join(' ');
         if (!shipName) return message.reply('❌ Usage: `!ship-remove <name>`');
@@ -305,10 +307,9 @@ async function handleMessage(message) {
         return message.reply(`✅ Ship **${shipName}** removed.`);
     }
 
-    // !ship-list — view all ships and crews / показва кораби и екипажи
+    // !ship-list
     if (cmd === '!ship-list') {
         const ships = await getShips(message.guild.id);
-        const captains = await getCaptains(message.guild.id);
 
         if (ships.length === 0) {
             return message.reply('⚠️ No ships configured. Use `!ship-add <name> <emoji> <@role>`');
@@ -322,7 +323,6 @@ async function handleMessage(message) {
         for (const ship of ships) {
             const role = message.guild.roles.cache.get(ship.role_id);
             const memberCount = role ? role.members.size : 0;
-            // Get captain names from DB for accuracy / Взимаме имената от базата
             const captainRes = await pool.query(
                 'SELECT username FROM ship_captains WHERE guild_id = $1 AND ship_key = $2',
                 [message.guild.id, ship.ship_key]
@@ -339,7 +339,7 @@ async function handleMessage(message) {
         return message.reply({ embeds: [embed] });
     }
 
-    // !ship-captain @user <ship-name> — set permanent captain / задава капитан
+    // !ship-captain @user <ship-name>
     if (cmd === '!ship-captain') {
         const targetUser = message.mentions.members.first();
         const shipName = args.slice(2).join(' ');
@@ -360,7 +360,6 @@ async function handleMessage(message) {
             [message.guild.id, message.guild.name, targetUser.id, targetUser.displayName, ship.ship_key, ship.ship_name]
         );
 
-        // Дава ролята на капитана автоматично
         const role = message.guild.roles.cache.get(ship.role_id);
         if (role && !targetUser.roles.cache.has(ship.role_id)) {
             await targetUser.roles.add(role).catch(() => {});
@@ -369,7 +368,7 @@ async function handleMessage(message) {
         return message.reply(`✅ **${targetUser.displayName}** is now captain of **${ship.emoji} ${ship.ship_name}**!`);
     }
 
-    // !ship-uncaptain @user — remove captain / маха капитан
+    // !ship-uncaptain @user
     if (cmd === '!ship-uncaptain') {
         const targetUser = message.mentions.members.first();
         if (!targetUser) return message.reply('❌ Usage: `!ship-uncaptain @user`');
@@ -382,8 +381,7 @@ async function handleMessage(message) {
         return message.reply(`✅ **${targetUser.displayName}** is no longer a captain.`);
     }
 
-    // !ship-addpermanent @user <ship-name> — add permanent crew member directly (Mod/Admin)
-    // Директно добавя постоянен член без approval (Мод/Админ)
+    // !ship-addpermanent @user <ship-name>
     if (cmd === '!ship-addpermanent') {
         const targetUser = message.mentions.members.first();
         const shipName = args.slice(2).join(' ');
@@ -400,8 +398,7 @@ async function handleMessage(message) {
         return message.reply(`✅ **${targetUser.displayName}** added to permanent crew of **${ship.emoji} ${ship.ship_name}**!`);
     }
 
-    // !ship-removepermanent @user — remove permanent crew member
-    // !ship-removepermanent @user — маха постоянен член на екипажа
+    // !ship-removepermanent @user
     if (cmd === '!ship-removepermanent') {
         const targetUser = message.mentions.members.first();
         if (!targetUser) return message.reply('❌ Usage: `!ship-removepermanent @user`');
@@ -418,8 +415,7 @@ async function handleMessage(message) {
         return message.reply(`✅ **${targetUser.displayName}** removed from permanent crew.`);
     }
 
-    // !ship-listpermanent — list all permanent crew members
-    // !ship-listpermanent — показва всички постоянни членове
+    // !ship-listpermanent
     if (cmd === '!ship-listpermanent') {
         const res = await pool.query(
             'SELECT user_id, username, ship_key FROM permanent_crew WHERE guild_id = $1 ORDER BY ship_key',
@@ -431,14 +427,12 @@ async function handleMessage(message) {
         }
 
         const ships = await getShips(message.guild.id);
-        const { EmbedBuilder } = require('discord.js');
 
         const embed = new EmbedBuilder()
             .setTitle('⚓ Permanent Crew')
             .setColor('#2ecc71')
             .setTimestamp();
 
-        // Group by ship / Групираме по кораб
         const grouped = {};
         res.rows.forEach(row => {
             const ship = ships.find(s => s.ship_key === row.ship_key);
@@ -454,9 +448,7 @@ async function handleMessage(message) {
         return message.reply({ embeds: [embed] });
     }
 
-    // !ship-addrepair <ship-name> <message> — add repair message / добавя repair съобщение
-    // Add a repair message for a specific ship / Добавя repair съобщение
-    // Use {user} where the @mention should appear / Използвай {user} за @mention
+    // !ship-addrepair
     if (cmd === '!ship-addrepair') {
         const shipName = args[1];
         const repairMsg = args.slice(2).join(' ');
@@ -476,8 +468,7 @@ async function handleMessage(message) {
         return message.reply(`✅ Repair message added for **${ship.emoji} ${ship.ship_name}**!\n> ${repairMsg.replace('{user}', '@someone')}`);
     }
 
-    // !ship-removerepair <id> — remove repair message by ID / маха repair съобщение
-    // Remove repair message by ID (get IDs from !ship-repairs) / Маха по ID
+    // !ship-removerepair
     if (cmd === '!ship-removerepair') {
         const id = args[1];
         if (!id) return message.reply('❌ Usage: `!ship-removerepair <id>` — get IDs with `!ship-repairs <name>`');
@@ -486,8 +477,7 @@ async function handleMessage(message) {
         return message.reply(`✅ Repair message \`${id}\` removed.`);
     }
 
-    // !ship-repairs <ship-name> — list all repair messages / показва repair съобщенията
-    // Show all repair messages for a ship with their IDs / Показва repair съобщенията
+    // !ship-repairs
     if (cmd === '!ship-repairs') {
         const shipName = args.slice(1).join(' ');
         if (!shipName) return message.reply('❌ Usage: `!ship-repairs <ship-name>`');
@@ -501,7 +491,6 @@ async function handleMessage(message) {
         if (res.rows.length === 0) {
             return message.reply(`⚠️ No repair messages for **${ship.emoji} ${ship.ship_name}** yet.\nAdd one with: \`!ship-addrepair ${ship.ship_name} {user} your message here\``);
         }
-        const { EmbedBuilder } = require('discord.js');
         const list = res.rows.map(r => `\`ID: ${r.id}\` — ${r.message}`).join('\n');
         const embed = new EmbedBuilder()
             .setTitle(`🔥 Repair messages for ${ship.emoji} ${ship.ship_name}`)
@@ -514,12 +503,10 @@ async function handleMessage(message) {
 
 // ─────────────────────────────────────────────
 // Helper: add member to permanent crew
-// Помощна функция: добавя член в постоянен екипаж
 // ─────────────────────────────────────────────
 async function addPermanentCrew(guild, member, ship, pool) {
     const role = guild.roles.cache.get(ship.role_id);
 
-    // Remove old ship roles / Махаме стари корабни роли
     const ships = await getShips(guild.id);
     for (const s of ships) {
         if (member.roles.cache.has(s.role_id)) {

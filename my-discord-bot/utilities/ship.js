@@ -200,9 +200,10 @@ async function handleMessage(message) {
     const { getConfig } = require('./guildConfig');
     const modRoleId = await getConfig(message.guild.id, 'mod_role');
     const isAdmin = message.member.permissions.has('Administrator');
-    const isMod = modRoleId ? message.member.roles.cache.has(modRoleId) : false;
+    // Fetch fresh member to ensure roles are up to date / Взимаме свеж member
+    const freshMember = await message.guild.members.fetch(message.author.id).catch(() => message.member);
+    const isMod = modRoleId ? freshMember.roles.cache.has(modRoleId) : false;
     const isModOrAdmin = isAdmin || isMod;
-    console.log(`[Ship] cmd=${cmd} modRoleId=${modRoleId} isAdmin=${isAdmin} isMod=${isMod}`);
 
     // !want <ship-name> — request permanent crew spot / заявка за постоянно място
     // Работи в belly_rush_roles_channel (или belly_rush_channel ако не е зададен)

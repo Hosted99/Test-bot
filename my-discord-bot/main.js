@@ -65,7 +65,7 @@ async function startSystem() {
 client.once("clientReady", async () => {
     initSchedulers(client, pool);
     levelingSystem(client, { pool });
-    initTranslateSystem(client); // Flag reaction translation / Превод с флаг реакции
+    initTranslateSystem(client); // Flag reaction translation / Превод с флаг реакции a
     console.log(`🤖 Online as: ${client.user.tag}`);
 
     client.guilds.cache.forEach(guild => {

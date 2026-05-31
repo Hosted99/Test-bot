@@ -264,7 +264,7 @@ async function handleMessage(message) {
     }
 
     // ── ADMIN COMMANDS / ADMIN КОМАНДИ ──
-    if (!isModOrAdmin) return message.reply('❌ Moderators and Admins only!');
+    if (!isModOrAdmin && cmd !== '!ship-list') return message.reply('❌ Moderators and Admins only!');
 
     // !ship-add <name> <emoji> <@role> — add a new ship / добавя нов кораб
     if (cmd === '!ship-add') {
@@ -305,7 +305,6 @@ async function handleMessage(message) {
 
     // !ship-list — view all ships and crews / показва кораби и екипажи
     if (cmd === '!ship-list') {
-        // Available to everyone / Достъпно за всички
         const ships = await getShips(message.guild.id);
         const captains = await getCaptains(message.guild.id);
 

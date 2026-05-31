@@ -197,13 +197,16 @@ async function handleMessage(message) {
     if (message.author.bot || !message.guild) return;
 
     const content = message.content.trim();
+    // Ако съобщението изобщо не започва с !, директно спираме, за да не пречи на чата
+    if (!content.startsWith('!')) return;
+
     const args = content.split(/\s+/);
     const cmd = args[0]?.toLowerCase();
 
-    // 1. Взимаме mod_role от базата конкретно за ТОЗИ сървър (message.guild.id)
+    // 1. Взимаме mod_role от базата конкретно за ТОЗИ сървър
     const modRoleId = await getConfig(message.guild.id, 'mod_role');
     
-    // 2. Вградени Discord права като бекъп спасителен пояс
+    // 2. Вградени Discord права като бекъп
     const isAdmin = message.member.permissions.has('Administrator');
     const isOwner = message.guild.ownerId === message.author.id;
     
@@ -211,10 +214,9 @@ async function handleMessage(message) {
     const freshMember = await message.guild.members.fetch(message.author.id).catch(() => message.member);
     const isMod = modRoleId ? freshMember.roles.cache.has(modRoleId) : false;
     
-    // Потребителят е легитимен, ако има ролята от DB, ако е админ или собственик на сървъра
     const isModOrAdmin = isAdmin || isOwner || isMod;
 
-    // !want <ship-name> — request permanent crew spot
+    // !want <ship-name> — request permanent crew spot (Достъпна за всички)
     if (cmd === '!want') {
         const rolesChannel = await getChannel(message.guild, 'belly_rush_roles_channel');
         const bellyChannel = await getChannel(message.guild, 'belly_rush_channel');
@@ -267,8 +269,19 @@ async function handleMessage(message) {
         }
     }
 
-    // ── ПРОВЕРКА ЗА ПРАВА НА АДМИН КОМАНДИТЕ ──
-    if (!isModOrAdmin && cmd !== '!ship-list') return message.reply('❌ Moderators and Admins only!');
+    // Списък с админ команди за корабите, които изискват модераторски права
+    const shipAdminCommands = [
+        '!ship-add', '!ship-remove', '!ship-captain', '!ship-uncaptain', 
+        '!ship-addpermanent', '!ship-removepermanent', '!ship-listpermanent', 
+        '!ship-addrepair', '!ship-removerepair', '!ship-repairs'
+    ];
+
+    // Проверяваме дали командата е админска и дали потребителят НЯМА права
+    if (shipAdminCommands.includes(cmd)) {
+        if (!isModOrAdmin) {
+            return message.reply('❌ Moderators and Admins only!');
+        }
+    }
 
     // !ship-add <name> <emoji> <@role>
     if (cmd === '!ship-add') {
@@ -307,7 +320,7 @@ async function handleMessage(message) {
         return message.reply(`✅ Ship **${shipName}** removed.`);
     }
 
-    // !ship-list
+    // !ship-list (Достъпна за всички)
     if (cmd === '!ship-list') {
         const ships = await getShips(message.guild.id);
 

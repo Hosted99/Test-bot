@@ -202,6 +202,7 @@ async function handleMessage(message) {
     const isAdmin = message.member.permissions.has('Administrator');
     const isMod = modRoleId ? message.member.roles.cache.has(modRoleId) : false;
     const isModOrAdmin = isAdmin || isMod;
+    console.log(`[Ship] cmd=${cmd} modRoleId=${modRoleId} isAdmin=${isAdmin} isMod=${isMod}`);
 
     // !want <ship-name> — request permanent crew spot / заявка за постоянно място
     // Работи в belly_rush_roles_channel (или belly_rush_channel ако не е зададен)

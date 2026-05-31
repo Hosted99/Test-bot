@@ -172,7 +172,10 @@ module.exports = (client, poolObj) => {
         if (message.content.toLowerCase().startsWith('!rank')) {
             message.delete().catch(() => {});
             const rankChannel = await getChannel(message.guild, 'level_up_channel') || message.channel;
-            const nextXP = userData.level * 500;
+            
+            // ✅ НОВА ПЛАВНА ФОРМУЛА ЗА ПРОГРЕС БАРА
+            const nextXP = 200 + (userData.level * 80);
+            
             const roleInfo = RANK_ROLES[userData.level];
             let timeLeft = 60;
 
@@ -259,25 +262,11 @@ module.exports = (client, poolObj) => {
 
         let xpGain = Math.floor((baseXP + lengthBonus) * multiplier);
         userData.xp += xpGain;
-        userData.needsUpdate = true;
-        xpCache.set(cacheKey, userData);
 
-        if (shouldWarn && now - (warnData.lastWarnTime || 0) > 10000) {
-            warnData.warns += 1;
-            warnData.lastWarnTime = now;
-            warnTracker.set(userId, warnData);
-            const warnMsg = await message.channel.send(`⚠️ ${message.author} stop spamming! Warning **${warnData.warns}/3**`);
-            setTimeout(() => warnMsg.delete().catch(() => {}), 5000);
-            if (warnData.warns >= 3) {
-                const member = message.member;
-                if (member && member.moderatable) await member.timeout(10 * 60 * 1000, "Spam - 3 warnings reached");
-                warnTracker.set(userId, { warns: 0, lastWarnTime: 0 });
-                const muteMsg = await message.channel.send(`🔇 ${message.author} has been muted for **10 minutes**.`);
-                setTimeout(() => muteMsg.delete().catch(() => {}), 8000);
-            }
-        }
+        // ✅ НОВА ПРО ВЕРКА ЗА LEVEL UP С ПЛАВНА ПРОГРЕСИЯ
+        const currentNeededXP = 200 + (userData.level * 80);
 
-        if (userData.xp >= (userData.level * 500)) {
+        if (userData.xp >= currentNeededXP) {
             userData.level++;
             userData.xp = 0;
             const roleData = RANK_ROLES[userData.level];
@@ -306,6 +295,21 @@ module.exports = (client, poolObj) => {
             userData.needsUpdate = false;
         } else {
             userData.needsUpdate = true;
+        }
+
+        if (shouldWarn && now - (warnData.lastWarnTime || 0) > 10000) {
+            warnData.warns += 1;
+            warnData.lastWarnTime = now;
+            warnTracker.set(userId, warnData);
+            const warnMsg = await message.channel.send(`⚠️ ${message.author} stop spamming! Warning **${warnData.warns}/3**`);
+            setTimeout(() => warnMsg.delete().catch(() => {}), 5000);
+            if (warnData.warns >= 3) {
+                const member = message.member;
+                if (member && member.moderatable) await member.timeout(10 * 60 * 1000, "Spam - 3 warnings reached");
+                warnTracker.set(userId, { warns: 0, lastWarnTime: 0 });
+                const muteMsg = await message.channel.send(`🔇 ${message.author} has been muted for **10 minutes**.`);
+                setTimeout(() => muteMsg.delete().catch(() => {}), 8000);
+            }
         }
         xpCache.set(cacheKey, userData);
     });

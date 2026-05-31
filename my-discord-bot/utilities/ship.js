@@ -201,15 +201,15 @@ async function handleMessage(message) {
     const cmd = args[0]?.toLowerCase();
 
     // 1. Взимаме mod_role от базата конкретно за ТОЗИ сървър (message.guild.id)
-    const modRoleId = await getConfig(message.guild.id, 'mod_role');[cite: 1]
+    const modRoleId = await getConfig(message.guild.id, 'mod_role');
     
     // 2. Вградени Discord права като бекъп спасителен пояс
     const isAdmin = message.member.permissions.has('Administrator');
     const isOwner = message.guild.ownerId === message.author.id;
     
     // 3. Проверяваме дали потребителят притежава уникалната роля за този сървър
-    const freshMember = await message.guild.members.fetch(message.author.id).catch(() => message.member);[cite: 1]
-    const isMod = modRoleId ? freshMember.roles.cache.has(modRoleId) : false;[cite: 1]
+    const freshMember = await message.guild.members.fetch(message.author.id).catch(() => message.member);
+    const isMod = modRoleId ? freshMember.roles.cache.has(modRoleId) : false;
     
     // Потребителят е легитимен, ако има ролята от DB, ако е админ или собственик на сървъра
     const isModOrAdmin = isAdmin || isOwner || isMod;
@@ -233,8 +233,8 @@ async function handleMessage(message) {
             return message.reply(`❌ Ship not found. Available ships: ${list || 'none'}`);
         }
 
-        const adminLogId = await getConfig(message.guild.id, 'admin_log_channel');[cite: 1]
-        const adminLog = adminLogId ? message.guild.channels.cache.get(adminLogId) : null;[cite: 1]
+        const adminLogId = await getConfig(message.guild.id, 'admin_log_channel');
+        const adminLog = adminLogId ? message.guild.channels.cache.get(adminLogId) : null;
 
         const requestEmbed = new EmbedBuilder()
             .setTitle('⚓ Permanent Crew Request')

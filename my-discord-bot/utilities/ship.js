@@ -196,6 +196,13 @@ async function handleMessage(message) {
     const args = content.split(/\s+/);
     const cmd = args[0]?.toLowerCase();
 
+    // Check if user is Mod or Admin / Проверяваме дали е Мод или Админ
+    const { getConfig } = require('./guildConfig');
+    const modRoleId = await getConfig(message.guild.id, 'mod_role');
+    const isAdmin = message.member.permissions.has('Administrator');
+    const isMod = modRoleId ? message.member.roles.cache.has(modRoleId) : false;
+    const isModOrAdmin = isAdmin || isMod;
+
     // !want <ship-name> — request permanent crew spot / заявка за постоянно място
     // Работи в belly_rush_roles_channel (или belly_rush_channel ако не е зададен)
     if (cmd === '!want') {
@@ -257,7 +264,7 @@ async function handleMessage(message) {
     }
 
     // ── ADMIN COMMANDS / ADMIN КОМАНДИ ──
-    if (!message.member.permissions.has('Administrator')) return;
+    if (!isModOrAdmin) return message.reply('❌ Moderators and Admins only!');
 
     // !ship-add <name> <emoji> <@role> — add a new ship / добавя нов кораб
     if (cmd === '!ship-add') {
@@ -298,6 +305,7 @@ async function handleMessage(message) {
 
     // !ship-list — view all ships and crews / показва кораби и екипажи
     if (cmd === '!ship-list') {
+        // Available to everyone / Достъпно за всички
         const ships = await getShips(message.guild.id);
         const captains = await getCaptains(message.guild.id);
 

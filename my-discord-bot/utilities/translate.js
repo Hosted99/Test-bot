@@ -1,4 +1,5 @@
 const Groq = require("groq-sdk");
+const { translate: googleTranslate } = require("@vitalets/google-translate-api");
 const { getConfig, setConfig } = require("./guildConfig");
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });

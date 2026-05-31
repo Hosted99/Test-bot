@@ -164,35 +164,49 @@ module.exports = (client, poolObj) => {
         }
 
         // КОМАНДА !rank
-        if (message.content.toLowerCase().startsWith('!rank')) {
-            message.delete().catch(() => {});
-            const rankChannel = await getChannel(message.guild, 'level_up_channel') || message.channel;
-            const nextXP = 200 + (userData.level * 80);
-            const roleInfo = RANK_ROLES[userData.level];
-            let timeLeft = 60;
+if (message.content.toLowerCase().startsWith('!rank')) {
+    message.delete().catch(() => {});
 
-            const embed = new EmbedBuilder()
-                .setTitle(`⚓ ${message.member.displayName}'s Status`)
-                .setThumbnail(message.author.displayAvatarURL({ dynamic: true }))
-                .setColor(roleInfo?.color || '#34495e')
-                .addFields(
-                    { name: '👤 Title', value: `**${roleInfo?.name || "Wanderer"}**`, inline: true },
-                    { name: '📈 Level', value: `\`${userData.level}\``, inline: true },
-                    { name: '📊 Progress', value: createProgressBar(userData.xp, nextXP), inline: false }
-                )
-                .setFooter({ text: `Auto-deleting in ${timeLeft}s` });
+    const rankChannel = await getChannel(message.guild, 'level_up_channel') || message.channel;
+    const nextXP = 200 + (userData.level * 80);
+    const roleInfo = RANK_ROLES[userData.level];
+    let timeLeft = 60;
 
-            const rankMsg = await rankChannel.send({ content: `⚓ ${message.author}, check your status:`, embeds: [embed] }).catch(() => {});
-            if (!rankMsg) return;
-            
-            const countdown = setInterval(async () => {
-                timeLeft -= 10;
-                if (timeLeft <= 0) { clearInterval(countdown); return rankMsg.delete().catch(() => {}); }
-                const updatedEmbed = EmbedBuilder.from(embed).setFooter({ text: `Auto-deleting in ${timeLeft}s` });
-                await rankMsg.edit({ embeds: [updatedEmbed] }).catch(() => clearInterval(countdown));
-            }, 10000);
-            return;
+    // 🌟 НОВО: Изчисляваме процента и правим текстовия формат за цифрите (напр. "120 / 300 XP")
+    const percentage = Math.min(Math.floor((userData.xp / nextXP) * 100), 100);
+    const xpDigits = `📊 **${userData.xp}** / **${nextXP} XP**`;
+
+    const embed = new EmbedBuilder()
+        .setTitle(`⚓ ${message.member.displayName}'s Status`)
+        .setThumbnail(message.author.displayAvatarURL({ dynamic: true }))
+        .setColor(roleInfo?.color || '#34495e')
+        .addFields(
+            { name: '👤 Title', value: `**${roleInfo?.name || "Wanderer"}**`, inline: true },
+            { name: '📈 Level', value: `\`${userData.level}\``, inline: true },
+            // 🌟 РЕДАКТИРАНО: Тук комбинираме цифрите на новия ред и прогрес бара под тях с процентите
+            { 
+                name: '📊 Progress', 
+                value: `${xpDigits}\n${createProgressBar(userData.xp, nextXP)} **${percentage}%**`, 
+                inline: false 
+            }
+        )
+        .setFooter({ text: `Auto-deleting in ${timeLeft}s` });
+
+    const rankMsg = await rankChannel.send({ content: `⚓ ${message.author}, check your status:`, embeds: [embed] }).catch(() => {});
+    if (!rankMsg) return;
+
+    const countdown = setInterval(async () => {
+        timeLeft -= 10;
+        if (timeLeft <= 0) {
+            clearInterval(countdown);
+            return rankMsg.delete().catch(() => {});
         }
+        const updatedEmbed = EmbedBuilder.from(embed).setFooter({ text: `Auto-deleting in ${timeLeft}s` });
+        await rankMsg.edit({ embeds: [updatedEmbed] }).catch(() => clearInterval(countdown));
+    }, 10000);
+    
+    return;
+}
 
         // КОМАНДА !top
         if (message.content.toLowerCase() === '!top') {

@@ -437,5 +437,4 @@ good morning / добро утро  ← bot replies with a random good morning G
 > 🔐 **Leveling, Flag Translate и Auto-Translate** се активират с парола от собственика на бота.
 > 
 > 🔐 **Leveling, Flag Translate and Auto-Translate** are activated with a password from the bot owner.
-ENDOFFILE
-echo "Done"
+

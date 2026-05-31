@@ -127,6 +127,7 @@ Hydra - @Nami @Sanji
 !ship-listpermanent                 ← показва всички постоянни членове (Мод/Админ)
 ```
 
+```
 > 💡 **Важно за правата на Модераторите:**
 > За да могат вашите модератори да използват корабните команди и бутона за ресет **без да имат реални Администраторски права в Discord**, задължително трябва първо да настроите модераторската роля  за сървъра чрез командата:
 > `!setconfig mod_role <ID-на-ролята>`
@@ -137,7 +138,7 @@ Hydra - @Nami @Sanji
     > Ботът автоматично ще разпознае притежателите на тази роля като оторизирани лица за управление на флота per-сървър!
 
 > 💡 Когато потребител напише `!want Sunny`, ботът изпраща заявка в `admin_log_channel` с бутони **✅ Approve** / **❌ Deny**. Мод или Админ натиска бутон и потребителят получава ЛС с резултата.
-
+```
 ---
 
 ### ⚙️ Repair Ship
@@ -340,6 +341,7 @@ Hydra - @Nami @Sanji
 !ship-listpermanent                 ← list all permanent crew members (Mod/Admin)
 ```
 
+```
 > 💡 **Important Note on Permissions:**
 > In order for your moderators to use ship admin commands and the fleet reset button **without needing full Discord Administrator permissions**, you must first register your server's moderator role using:
 > `!setconfig mod_role <role-id>`
@@ -350,7 +352,7 @@ Hydra - @Nami @Sanji
     > The bot will automatically recognize members with this role as authorized managers for the fleet on a per-server basis!
 
 > 💡 When a user types `!want Sunny`, the bot sends a request to `admin_log_channel` with **✅ Approve** / **❌ Deny** buttons. A Mod or Admin clicks the button and the user gets a DM with the result.
-
+```
 ---
 
 ### ⚙️ Repair Ship

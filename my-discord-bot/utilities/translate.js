@@ -40,24 +40,38 @@ const COOLDOWN_MS = 5000;
 // Channels to skip for auto-translate / Канали без авто-превод
 const SKIP_CHANNEL_NAMES = ['ai-translator', 'bot-', 'admin', 'log', 'status'];
 
-// Lingva instances — fallback if one is down / Резервни инстанции
+// РАЗШИРЕН СПИСЪК СЪС СТАБИЛНИ LINGVA ИНСТАНЦИИ
 const LINGVA_INSTANCES = [
     'https://lingva.ml',
     'https://translate.plausibility.cloud',
     'https://lingva.thedaviddelta.com',
+    'https://lingva.lunar.icu',
+    'https://lingva.garudalinux.org',
+    'https://lingva.totalandrogyny.com',
+    'https://lingva.seby.io',
+    'https://lingva.no-logs.com'
 ];
 
 /**
  * Translate text using Lingva (Google Translate backend, no rate limits)
- * Превежда с Lingva — ползва Google Translate отзад, без rate limiting
+ * Превежда с Lingva — със светкавичен таймаут против забиване
  */
 async function lingvaTranslate(text, from = 'auto', to = 'en') {
     const encoded = encodeURIComponent(text);
+    
     for (const instance of LINGVA_INSTANCES) {
         try {
+            // Прекратява заявката автоматично, ако инстанцията забие за повече от 1.5 секунди
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 1500);
+
             const res = await fetch(`${instance}/api/v1/${from}/${to}/${encoded}`, {
-                headers: { 'Accept': 'application/json' }
+                headers: { 'Accept': 'application/json' },
+                signal: controller.signal
             });
+            
+            clearTimeout(timeoutId);
+
             if (!res.ok) continue;
             
             const data = await res.json();
@@ -68,7 +82,7 @@ async function lingvaTranslate(text, from = 'auto', to = 'en') {
                 };
             }
         } catch (e) {
-            // Try next instance / Пробваме следващата инстанция
+            // Ако инстанцията е бавна или офлайн, веднага преминава на следващата в списъка
             continue;
         }
     }
@@ -114,17 +128,17 @@ function initTranslateSystem(client) {
         setTimeout(() => flagCooldown.delete(cooldownKey), COOLDOWN_MS);
 
         try {
-            // Стъпка 1: Използваме супер бързата Lingva само за да разберем СЪС СИГУРНОСТ оригиналния език
+            // Използваме бързата Lingva, за да разберем СЪС СИГУРНОСТ оригиналния език
             const lingvaDetect = await lingvaTranslate(messageContent, 'auto', 'en');
             const sourceIso = lingvaDetect?.detectedLanguage || 'auto';
             const sourceLanguage = ISO_TO_LANG_NAME[sourceIso] || 'the original language';
 
-            // Стъпка 2: Подаваме на Groq точния контекст (от кой към кой език се превежда)
+            // Подаваме на Groq точния контекст
             const systemPrompt = `You are a professional, elite slang-accurate translator. 
 Your task is to translate a chat message from ${sourceLanguage} into native, context-aware, and natural-sounding ${targetLanguage}.
 
 RULES:
-1. NEVER translate word-for-word (literally). Focus heavily on the modern internet slang, idioms, and actual meaning used in casual chat rooms.
+1. NEVER translate word-for-word (literally). Focus heavily on modern internet slang, idioms, and the actual meaning used in casual chat rooms.
 2. If the message uses casual emphasis or structural slang (like French 'grave mieux', Spanish 'de locos', German 'voll gut'), adapt it into an equivalent natural slang in ${targetLanguage}.
 3. Keep the original text's tone, emotion, capitalization, and casual vibe exactly as it is.
 4. Output ONLY the raw translated text. Do not wrap it in quotes, do not write explanations, and do not include any introductions.`;
@@ -212,7 +226,7 @@ RULES:
         }
     });
 
-    console.log('✅ Translation systems ready (flag: Groq, auto: Lingva) / Системите за превод са готови.');
+    console.log('✅ Translation systems ready (flag: Groq, auto: Lingva with 8 fallbacks) / Системите за превод са готови.');
 }
 
 module.exports = { initTranslateSystem };

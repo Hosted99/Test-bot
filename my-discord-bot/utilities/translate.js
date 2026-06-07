@@ -1,5 +1,4 @@
 const Groq = require("groq-sdk");
-const { translate: googleTranslate } = require("@vitalets/google-translate-api");
 const { getConfig, setConfig } = require("./guildConfig");
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
@@ -35,6 +34,38 @@ const COOLDOWN_MS = 5000;
 // Channels to skip for auto-translate / Канали без авто-превод
 const SKIP_CHANNEL_NAMES = ['ai-translator', 'bot-', 'admin', 'log', 'status'];
 
+// Lingva instances — fallback if one is down / Резервни инстанции
+const LINGVA_INSTANCES = [
+    'https://lingva.ml',
+    'https://translate.plausibility.cloud',
+    'https://lingva.thedaviddelta.com',
+];
+
+/**
+ * Translate text using Lingva (Google Translate backend, no rate limits)
+ * Превежда с Lingva — ползва Google Translate отзад, без rate limiting
+ */
+async function lingvaTranslate(text, from = 'auto', to = 'en') {
+    const encoded = encodeURIComponent(text);
+    for (const instance of LINGVA_INSTANCES) {
+        try {
+            const res = await fetch(`${instance}/api/v1/${from}/${to}/${encoded}`);
+            if (!res.ok) continue;
+            const data = await res.json();
+            if (data?.translation) {
+                return {
+                    text: data.translation,
+                    detectedLanguage: data.info?.detectedSource || null
+                };
+            }
+        } catch (e) {
+            // Try next instance / Пробваме следващата инстанция
+            continue;
+        }
+    }
+    return null;
+}
+
 /**
  * Initialize both translation systems
  * Инициализира двете системи за превод
@@ -42,7 +73,7 @@ const SKIP_CHANNEL_NAMES = ['ai-translator', 'bot-', 'admin', 'log', 'status'];
 function initTranslateSystem(client) {
 
     // ─────────────────────────────────────────────
-    // 1. FLAG REACTION TRANSLATOR
+    // 1. FLAG REACTION TRANSLATOR (Groq/LLaMA)
     // Превод с флаг реакция — само реагиралият вижда
     // Изчезва след 2 минути
     // ─────────────────────────────────────────────
@@ -99,9 +130,10 @@ function initTranslateSystem(client) {
         }
     });
 
-  // ─────────────────────────────────────────────
-    // 2. AUTO TRANSLATE TO ENGLISH
+    // ─────────────────────────────────────────────
+    // 2. AUTO TRANSLATE TO ENGLISH (Lingva)
     // Авто-превод на не-английски съобщения → английски
+    // Ползва Lingva (Google Translate backend, без rate limits)
     // Появява се под оригиналното съобщение, не изчезва
     // ─────────────────────────────────────────────
     client.on('messageCreate', async (message) => {
@@ -124,10 +156,10 @@ function initTranslateSystem(client) {
 
         // Clean text / Почистваме текста
         const cleanText = text
-            .replace(/<[^>]+>/g, '')                    // remove mentions/channels
-            .replace(/https?:\/\/\S+/g, '')            // remove links
-            .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')     // remove emojis
-            .replace(/[^\p{L}\p{N}\s]/gu, ' ')         // keep only letters, numbers, spaces
+            .replace(/<[^>]+>/g, '')                     // remove mentions/channels
+            .replace(/https?:\/\/\S+/g, '')              // remove links
+            .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')      // remove emojis
+            .replace(/[^\p{L}\p{N}\s]/gu, ' ')           // keep only letters, numbers, spaces
             .trim();
         if (!cleanText || cleanText.length < 5) return;
 
@@ -135,28 +167,20 @@ function initTranslateSystem(client) {
         const wordCount = cleanText.split(/\s+/).filter(w => w.length > 0).length;
         if (wordCount <= 2 && cleanText.length < 8) return;
 
-        // Skip if text looks like English (all common English words)
-        // Пропускаме ако изглежда като английски
-        const englishOnlyPattern = /^[a-zA-Z0-9\s\.,!?'"-]+$/;
-        if (englishOnlyPattern.test(cleanText)) {
-            // Could be English OR Latin-based language (Italian, French, Spanish etc.)
-            // Let Groq decide — don't skip automatically
-            // Нека Groq реши — може да е италиански/френски с латиница
-        }
-
         // Cooldown per user / Cooldown per потребител
         if (autoTranslateCooldown.has(message.author.id)) return;
         autoTranslateCooldown.set(message.author.id, true);
         setTimeout(() => autoTranslateCooldown.delete(message.author.id), COOLDOWN_MS);
 
         try {
-            // Use Google Translate for auto-translate / Ползваме Google Translate
-            const result = await googleTranslate(cleanText, { to: 'en' });
-
+            // Use Lingva for auto-translate / Ползваме Lingva
+            const result = await lingvaTranslate(cleanText);
             if (!result?.text) return;
 
-            // Skip if translation is identical to original (means it was already English)
-            // Пропускаме ако е същото (значи беше английски)
+            // Skip if detected language is English / Пропускаме ако е английски
+            if (result.detectedLanguage === 'en') return;
+
+            // Skip if translation is identical to original / Пропускаме ако е същото
             if (result.text.toLowerCase().trim() === cleanText.toLowerCase().trim()) return;
 
             await message.reply({
@@ -169,7 +193,5 @@ function initTranslateSystem(client) {
         }
     });
 
-    console.log('✅ Translation systems ready (flag + auto) / Системите за превод са готови.');
+    console.log('✅ Translation systems ready (flag: Groq, auto: Lingva) / Системите за превод са готови.');
 }
-
-module.exports = { initTranslateSystem };

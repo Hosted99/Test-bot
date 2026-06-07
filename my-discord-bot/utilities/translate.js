@@ -1,4 +1,5 @@
 const Groq = require("groq-sdk");
+const axios = require("axios"); // Използваме супер стабилния axios
 const { getConfig, setConfig } = require("./guildConfig");
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
@@ -48,31 +49,28 @@ const LINGVA_INSTANCES = [
     'https://lingva.no-logs.com'
 ];
 
+/**
+ * Превежда/Детектва с Lingva чрез Axios със светкавичен таймаут
+ */
 async function lingvaTranslate(text, from = 'auto', to = 'en') {
     const encoded = encodeURIComponent(text);
     
     for (const instance of LINGVA_INSTANCES) {
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 1500);
-
-            const res = await fetch(`${instance}/api/v1/${from}/${to}/${encoded}`, {
-                headers: { 'Accept': 'application/json' },
-                signal: controller.signal
+            // Използваме axios с твърд timeout от 1500 милисекунди
+            const res = await axios.get(`${instance}/api/v1/${from}/${to}/${encoded}`, {
+                timeout: 1500,
+                headers: { 'Accept': 'application/json' }
             });
-            
-            clearTimeout(timeoutId);
 
-            if (!res.ok) continue;
-            
-            const data = await res.json();
-            if (data?.translation) {
+            if (res.status === 200 && res.data?.translation) {
                 return {
-                    text: data.translation,
-                    detectedLanguage: data.info?.detectedSource || null
+                    text: res.data.translation,
+                    detectedLanguage: res.data.info?.detectedSource || null
                 };
             }
         } catch (e) {
+            // При грешка или забавяне скача веднага на следващото огледало
             continue;
         }
     }
@@ -82,7 +80,7 @@ async function lingvaTranslate(text, from = 'auto', to = 'en') {
 function initTranslateSystem(client) {
 
     // ─────────────────────────────────────────────
-    // 1. FLAG REACTION TRANSLATOR (Groq Expert)
+    // 1. FLAG REACTION TRANSLATOR
     // ─────────────────────────────────────────────
     client.on('messageReactionAdd', async (reaction, user) => {
         if (user.bot) return;
@@ -95,8 +93,9 @@ function initTranslateSystem(client) {
         const targetLanguage = FLAG_TO_LANGUAGE[flag];
         if (!targetLanguage) return;
 
-        if (reaction.partial) { try { await reaction.fetch(); } catch { return; } }
-        if (reaction.message.partial) { try { await reaction.message.fetch(); } catch { return; } }
+        // ПЪЛНО ПОДСИГУРЯВАНЕ: Задължително теглим обектите, ако са partial
+        if (reaction.partial) { try { await reaction.fetch(); } catch (e) { return; } }
+        if (reaction.message.partial) { try { await reaction.message.fetch(); } catch (e) { return; } }
 
         const messageContent = reaction.message.content;
         if (!messageContent || messageContent.trim().length === 0) return;
@@ -138,12 +137,12 @@ CRITICAL RULES:
             setTimeout(() => tempMsg.delete().catch(() => {}), 2 * 60 * 1000);
 
         } catch (err) {
-            console.error('Flag translate error:', err.message);
+            console.error('Flag translate error:', err);
         }
     });
 
     // ─────────────────────────────────────────────
-    // 2. AUTO TRANSLATE TO ENGLISH (Безопасен и Оптимизиран)
+    // 2. AUTO TRANSLATE TO ENGLISH
     // ─────────────────────────────────────────────
     client.on('messageCreate', async (message) => {
         if (message.author.bot) return;
@@ -156,14 +155,13 @@ CRITICAL RULES:
         if (SKIP_CHANNEL_NAMES.some(skip => channelName.includes(skip))) return;
 
         const text = message.content?.trim();
-        if (!text || text.length < 3) return; // Намалено на 3 символа, за да хваща кратки изрази
+        if (!text || text.length < 3) return;
 
         if (text.startsWith('!') || text.startsWith('/')) return;
 
-        // ПОПРАВКА: Премахваме само линкове и споменавания, без да трием специфични чужди букви!
         const cleanText = text
-            .replace(/<[^>]+>/g, '')                     // маха тагове
-            .replace(/https?:\/\/\S+/g, '')              // маха линкове
+            .replace(/<[^>]+>/g, '')                     
+            .replace(/https?:\/\/\S+/g, '')              
             .trim();
             
         if (!cleanText || cleanText.length < 3) return;
@@ -176,10 +174,7 @@ CRITICAL RULES:
             const result = await lingvaTranslate(cleanText, 'auto', 'en');
             if (!result?.text) return;
 
-            // Ако езикът е засечен като английски, пропускаме
             if (result.detectedLanguage === 'en') return;
-
-            // Ако преводът съвпада изцяло с оригинала, пропускаме
             if (result.text.toLowerCase().trim() === cleanText.toLowerCase().trim()) return;
 
             await message.reply({
@@ -188,11 +183,11 @@ CRITICAL RULES:
             });
 
         } catch (err) {
-            console.error('Auto translate error:', err.message);
+            console.error('Auto translate error:', err);
         }
     });
 
-    console.log('✅ Systems fully updated and fixed.');
+    console.log('✅ Translation systems bulletproofed with Axios.');
 }
 
 module.exports = { initTranslateSystem };

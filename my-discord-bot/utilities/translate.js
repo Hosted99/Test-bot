@@ -99,7 +99,7 @@ function initTranslateSystem(client) {
         }
     });
 
-   // ─────────────────────────────────────────────
+  // ─────────────────────────────────────────────
     // 2. AUTO TRANSLATE TO ENGLISH
     // Авто-превод на не-английски съобщения → английски
     // Появява се под оригиналното съобщение, не изчезва
@@ -153,11 +153,10 @@ function initTranslateSystem(client) {
             // Use Google Translate for auto-translate / Ползваме Google Translate
             const result = await googleTranslate(cleanText, { to: 'en' });
 
-            // Skip if already English / Пропускаме ако е английски
-            const from = result.raw?.[2] || result.from?.language?.iso || '';
-            if (!from || from === 'en') return;
+            if (!result?.text) return;
 
-            // Skip if translation is identical to original / Пропускаме ако е същото
+            // Skip if translation is identical to original (means it was already English)
+            // Пропускаме ако е същото (значи беше английски)
             if (result.text.toLowerCase().trim() === cleanText.toLowerCase().trim()) return;
 
             await message.reply({

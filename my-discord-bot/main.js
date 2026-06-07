@@ -2,6 +2,7 @@ const Groq = require("groq-sdk");
 const { Client, GatewayIntentBits, EmbedBuilder, Events, AuditLogEvent } = require("discord.js");
 const path = require('path'); 
 const cron = require('node-cron');
+const https = require('https'); // Добавено за VirusTotal API заявките
 const shipSystem = require('./utilities/ship.js');
 const { pool, initDB } = require("./utilities/db");
 const { initGuildConfigTable, getConfig, setConfig, getAllConfig, getChannel, getRole, preloadAllConfigs } = require("./utilities/guildConfig");
@@ -32,6 +33,61 @@ function cleanDiscordContent(content) {
     return cleaned;
 }
 
+// === ФУНКЦИЯ ЗА ПРОВЕРКА НА ЛИНКОВЕ ЧРЕЗ VIRUSTOTAL API ===
+function checkLinkWithVirusTotal(urlToCheck) {
+    return new Promise((resolve) => {
+        const apiKey = process.env.VIRUSTOTAL_API_KEY;
+        if (!apiKey) {
+            console.error("⚠️ VIRUSTOTAL_API_KEY липсва в .env файла! Всички линкове се приемат за безопасни.");
+            return resolve(true); 
+        }
+
+        // Превръщаме URL адреса в Base64 без запълващи '=' символи (както изисква VirusTotal v3)
+        const urlId = Buffer.from(urlToCheck).toString('base64').replace(/=/g, '');
+
+        const options = {
+            hostname: 'www.virustotal.com',
+            path: `/api/v3/urls/${urlId}`,
+            method: 'GET',
+            headers: {
+                'x-apikey': apiKey,
+                'Accept': 'application/json'
+            }
+        };
+
+        const req = https.request(options, (res) => {
+            let data = '';
+            res.on('data', (chunk) => { data += chunk; });
+            res.on('end', () => {
+                try {
+                    if (res.statusCode === 200) {
+                        const json = JSON.parse(data);
+                        const stats = json.data.attributes.last_analysis_stats;
+                        
+                        // Ако има дори 1 глас за malicious или suspicious, блокираме линка
+                        if (stats.malicious > 0 || stats.suspicious > 0) {
+                            return resolve(false); 
+                        }
+                    } else if (res.statusCode === 404) {
+                        console.log(`ℹ️ Линка не е намерен в базата на VirusTotal, приема се за безопасен.`);
+                    }
+                    resolve(true); 
+                } catch (e) {
+                    console.error("Грешка при парсване на VirusTotal отговор:", e.message);
+                    resolve(true); 
+                }
+            });
+        });
+
+        req.on('error', (err) => {
+            console.error("VirusTotal API грешка:", err.message);
+            resolve(true);
+        });
+
+        req.end();
+    });
+}
+
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds, 
@@ -54,9 +110,9 @@ console.log(`Monitoring server started on port ${port}`);
 async function startSystem() {
     try {
         await initDB();
-        await initGuildConfigTable(); // ← Инициализираме конфиг таблицата
+        await initGuildConfigTable(); 
         console.log("✅ Database is ready.");
-        client.login(process.env.DISCORD_TOKEN); // ← ONLY ONE login() call / САМО ЕДНО login()
+        client.login(process.env.DISCORD_TOKEN); 
     } catch (err) {
         console.error("❌ Critical Startup Error:", err.message);
     }
@@ -65,17 +121,15 @@ async function startSystem() {
 client.once("clientReady", async () => {
     initSchedulers(client, pool);
     levelingSystem(client, { pool });
-    initTranslateSystem(client); // Flag reaction translation / Превод с флаг реакции a
+    initTranslateSystem(client); 
     console.log(`🤖 Online as: ${client.user.tag}`);
 
     client.guilds.cache.forEach(guild => {
         guild.members.fetch().then(() => console.log(`✅ Cached members for: ${guild.name}`));
     });
 
-    // Belly Rush cron — works for EVERY server / работи за ВСЕКИ сървър
     cron.schedule('00 10 * * 2,5', async () => {
         client.guilds.cache.forEach(async (guild) => {
-            // ✅ MULTI-SERVER: get channel from config / взима канала от конфига
             const targetChannel = await getChannel(guild, 'belly_rush_channel');
             if (targetChannel) {
                 try {
@@ -88,7 +142,6 @@ client.once("clientReady", async () => {
         });
     }, { timezone: "Europe/London" });
 
-    // Online status in every server / Online статус
     client.guilds.cache.forEach(async (guild) => {
         await sendBotManual(guild).catch(err => console.log("Грешка при Manual msg:", err.message));
 
@@ -109,7 +162,6 @@ client.on("messageDelete", async (message) => {
 });
 
 client.on("messageDeleteBulk", async (messages) => {
-    // logBulkDelete е недефинирана в оригинала — добавена защита
     console.log(`[Log] Bulk delete: ${messages.size} messages`);
 });
 
@@ -120,11 +172,9 @@ client.on("guildMemberAdd", async (member) => {
 
 client.on("messageCreate", async (msg) => {
 
-    // ✅ MULTI-SERVER: get RESTRICTED_CHANNEL from THIS server's config / взима от конфига
     if (msg.guild) {
         const restrictedChannelId = await getConfig(msg.guild.id, 'restricted_channel');
         const adminLogChannelId = await getConfig(msg.guild.id, 'admin_log_channel');
-        // Protected users set with !setconfig protected_users "id1,id2,id3"
         const protectedUsersRaw = await getConfig(msg.guild.id, 'protected_users');
         const PROTECTED_USERS = protectedUsersRaw ? protectedUsersRaw.split(',') : [];
 
@@ -161,6 +211,78 @@ client.on("messageCreate", async (msg) => {
     
     if (msg.author.bot || !msg.guild) return;
 
+    // =================================================================
+    // СИСТЕМА ЗА АВТОМАТИЧНА ПРОВЕРКА НА ЛИНКОВЕ И ИЗПРАЩАНЕ ЧРЕЗ WEBHOOK
+    // =================================================================
+    const linkRegex = /(https?:\/\/[^\s]+)/g;
+    if (linkRegex.test(msg.content)) {
+        try {
+            const foundLinks = msg.content.match(linkRegex);
+            const originalContent = msg.content;
+            const author = msg.author;
+            const member = msg.member;
+
+            // 1. Изтриваме оригиналното съобщение на секундата
+            await msg.delete().catch(() => {});
+
+            // 2. Пускаме проверка в VirusTotal в заден план
+            const isSafe = await checkLinkWithVirusTotal(foundLinks[0]);
+
+            if (isSafe) {
+                // 3. Търсим съществуващ Webhook на бота в този канал или създаваме нов
+                const webhooks = await msg.channel.fetchWebhooks().catch(() => null);
+                let webhook = webhooks ? webhooks.find(wh => wh.name === "CaptainLinkScanner") : null;
+
+                if (!webhook) {
+                    webhook = await msg.channel.createWebhook({
+                        name: 'CaptainLinkScanner',
+                        avatar: client.user.displayAvatarURL(),
+                        reason: 'Необходим за препращане на проверени сигурни линкове.'
+                    }).catch(err => console.error("Не можах да създам Webhook в канала:", err.message));
+                }
+
+                if (webhook) {
+                    // Изпращаме оригиналния текст маскиран с профила на потребителя
+                    await webhook.send({
+                        content: originalContent,
+                        username: member ? member.displayName : author.username,
+                        avatarURL: author.displayAvatarURL({ dynamic: true })
+                    });
+                } else {
+                    // Резервен вариант в случай, че липсват права за Webhook
+                    await msg.channel.send(`✅ **Сигурен линк от ${author}:**\n${originalContent}`);
+                }
+            } else {
+                // Линкът е опасен (Malicious / Phishing)
+                const warningMsg = await msg.channel.send(`❌ ${author}, съобщението ти беше блокирано автоматично, тъй като съдържа вредоносен или фишинг линк!`);
+                setTimeout(() => warningMsg.delete().catch(() => {}), 10000); // Почистваме предупреждението след 10 сек
+
+                // Логваме опита за фишинг в администраторския канал на сървъра
+                const adminLogChannelId = await getConfig(msg.guild.id, 'admin_log_channel');
+                if (adminLogChannelId) {
+                    const logChannel = msg.guild.channels.cache.get(adminLogChannelId);
+                    if (logChannel) {
+                        const alertEmbed = new EmbedBuilder()
+                            .setColor('#ff0000')
+                            .setTitle('🚨 Засечена Кибер Заплаха (Опасен Линк)')
+                            .addFields(
+                                { name: 'Потребител:', value: `${author.tag} (\`${author.id}\`)`, inline: true },
+                                { name: 'Канал:', value: `<#${msg.channel.id}>`, inline: true },
+                                { name: 'Хванат линк:', value: `\`${foundLinks[0]}\`` },
+                                { name: 'Пълно съобщение:', value: `\`\`\`${originalContent}\`\`\`` }
+                            )
+                            .setTimestamp();
+                        await logChannel.send({ embeds: [alertEmbed] }).catch(() => {});
+                    }
+                }
+            }
+            return; // Спираме по-нататъшната обработка на съобщението
+        } catch (err) {
+            console.error("Критична грешка в Линк Скенера:", err.message);
+        }
+    }
+    // =================================================================
+
     try { await shipSystem.handleMessage(msg); } catch (e) { console.error("Ship system error:", e); }
 
     const lowerContent = msg.content.toLowerCase().trim();
@@ -190,10 +312,6 @@ client.on("messageCreate", async (msg) => {
             }
         }
 
-        // ✅ NEW: Server configuration command / Команда за конфигуриране
-        // Admin only / Само за администратори
-        // Пример: !setconfig level_up_channel 1234567890
-        // Пример: !setconfig rookies_role 9876543210
         if (cmd === "!setconfig") {
             if (!msg.member.permissions.has('Administrator')) {
                 return msg.reply("❌ Only administrators can configure the bot.");
@@ -228,7 +346,6 @@ client.on("messageCreate", async (msg) => {
             return msg.reply(`✅ Configuration saved: \`${key}\` = \`${value}\``);
         }
 
-        // ✅ NEW: View configuration for THIS server / Преглед на конфигурацията
         if (cmd === "!getconfig") {
             if (!msg.member.permissions.has('Administrator')) {
                 return msg.reply("❌ Only administrators can view the configuration.");
@@ -247,11 +364,8 @@ client.on("messageCreate", async (msg) => {
             return msg.reply({ embeds: [configEmbed] });
         }
 
-        // !translate-enable <password> — activate flag translation for this server
-        // !translate-enable <парола> — активира превода с флагове за ТОЗИ сървър
         if (cmd === "!translate-enable") {
             const inputPassword = args[0];
-            // ✅ Password from .env — only the bot owner knows it / Паролата е в .env
             const storedPassword = process.env.TRANSLATE_PASSWORD;
             console.log(`[Translate] inputPassword: "${inputPassword}", storedPassword: "${storedPassword}", match: ${inputPassword === storedPassword}`);
             if (!storedPassword) {
@@ -264,14 +378,12 @@ client.on("messageCreate", async (msg) => {
             return msg.reply('✅ **Flag translation activated!** React with a flag emoji to translate any message.');
         }
 
-        // !translate-disable — deactivate flag translation (Admin only)
         if (cmd === "!translate-disable") {
             if (!msg.member.permissions.has('Administrator')) return;
             await setConfig(msg.guild.id, 'flag_translate_enabled', 'false', msg.guild.name);
             return msg.reply('🔒 **Flag translation disabled.**');
         }
 
-        // !auto-translate-enable <password> — activate auto English translation for all channels
         if (cmd === "!auto-translate-enable") {
             const inputPassword = args[0];
             const storedPassword = process.env.TRANSLATE_PASSWORD;
@@ -284,19 +396,12 @@ client.on("messageCreate", async (msg) => {
             return msg.reply('✅ **Auto-translate activated!** Non-English messages will be translated to English automatically.');
         }
 
-        // !auto-translate-disable — deactivate auto translation (Admin only)
         if (cmd === "!auto-translate-disable") {
             if (!msg.member.permissions.has('Administrator')) return;
             await setConfig(msg.guild.id, 'auto_translate_enabled', 'false', msg.guild.name);
             return msg.reply('🔒 **Auto-translate disabled.**');
         }
 
-        // !leveling-enable and !leveling-disable are handled in leveling.js
-        // Обработват се в leveling.js
-
-        // ✅ MANIA GUILD MANAGEMENT / Управление на Mania гилдии
-        // !mania-addguild <key> @role #channel
-        // Пример: !mania-addguild g3 @Guild3 #mania-g3
         if (cmd === "!mania-addguild") {
             if (!msg.member.permissions.has('Administrator')) return;
             const key = args[0];
@@ -343,15 +448,12 @@ client.on("messageCreate", async (msg) => {
             return msg.reply({ embeds: [embed] });
         }
 
-
-        // !checkconfig — показва какво е configured и какво missing
         if (cmd === "!checkconfig") {
             if (!msg.member.permissions.has("Administrator")) return;
 
             const { getAllConfig } = require("./utilities/guildConfig");
             const config = await getAllConfig(msg.guild.id);
 
-            // Всички ключове с описание
             const allKeys = [
                 { key: "level_up_channel",         desc: "Level-up съобщения",          type: "channel" },
                 { key: "log_channel",               desc: "XP логове",                   type: "channel" },
@@ -386,7 +488,6 @@ client.on("messageCreate", async (msg) => {
             for (const item of allKeys) {
                 const value = config[item.key];
                 if (value) {
-                    // Показваме канал/роля като mention
                     let display = value;
                     if (item.type === "channel") display = `<#${value}>`;
                     else if (item.type === "role") display = `<@&${value}>`;
@@ -398,7 +499,6 @@ client.on("messageCreate", async (msg) => {
                 }
             }
 
-            // Check mania guilds / Проверяваме mania гилдиите
             const maniaKeys = Object.keys(config).filter(k => k.startsWith("mania_role_"));
             if (maniaKeys.length > 0) {
                 maniaKeys.forEach(k => {
@@ -409,7 +509,6 @@ client.on("messageCreate", async (msg) => {
                 missing.push(`❌ Mania гилдии — използвай \`!mania-addguild\``);
             }
 
-            // Check ships / Проверяваме корабите
             const { pool } = require("./utilities/db");
             const shipsRes = await pool.query("SELECT ship_name FROM ships WHERE guild_id = $1", [msg.guild.id]);
             if (shipsRes.rows.length > 0) {
@@ -418,7 +517,6 @@ client.on("messageCreate", async (msg) => {
                 missing.push(`❌ Кораби — използвай \`!ship-add <name> <emoji> @role\``);
             }
 
-            // Helper to split long lists into 1024-char chunks / Разделя дълги списъци
             const splitFields = (arr, title) => {
                 const fields = [];
                 let chunk = "";
@@ -437,7 +535,6 @@ client.on("messageCreate", async (msg) => {
                 ? "🎉 **Всичко е configured! Ботът е готов за работа.**"
                 : `⚠️ **${missing.length} настройки missingт.** Използвай \`!setconfig <key> <value>\` to add them.`;
 
-            // Check leveling status / Проверяваме статуса на leveling
             const levelingStatus = config['leveling_enabled'];
             const translateStatus = config['flag_translate_enabled'];
 
@@ -479,19 +576,15 @@ client.on("messageCreate", async (msg) => {
         }
 
         return await handleCommands(msg, pool);
-
-
     } 
 
-    // Special channels / Специални канали
     const specialHandled = await handleSpecialChannels(msg, pool);
     if (specialHandled) return;
 
-    // ✅ MULTI-SERVER: check channel from config / проверяваме канала от конфига
     const translatorChannelId = await getConfig(msg.guild.id, 'translator_channel');
     const isTranslatorChannel = translatorChannelId 
         ? msg.channel.id === translatorChannelId 
-        : msg.channel.name === '│🌐│ai-translator'; // fallback to channel name / fallback към ime
+        : msg.channel.name === '│🌐│ai-translator'; 
 
     if (isTranslatorChannel) {
         if (msg.author.bot) return;
@@ -548,7 +641,6 @@ client.on("messageCreate", async (msg) => {
         return;
     }
     
-    // Good night response / Лека нощ
     const nightRegex = /\b(good night|nighty night)\b/i;
     if (nightRegex.test(msg.content.toLowerCase())) {
         const nightEmbed = new EmbedBuilder()
@@ -559,7 +651,6 @@ client.on("messageCreate", async (msg) => {
         return msg.reply({ embeds: [nightEmbed] });
     }
 
-    // Good morning response / Добро утро
     const morningRegex = /\b(good morning|добро утро)\b/i;
     if (morningRegex.test(msg.content.toLowerCase())) {
         const morningGifs = [
@@ -593,7 +684,6 @@ client.on('messageReactionAdd', async (reaction, user) => {
 
 client.on("interactionCreate", async (interaction) => {
     try {
-        // Handle permanent crew approval buttons / Одобрение на постоянен екипаж
         if (interaction.isButton() && (interaction.customId.startsWith('perm_approve:') || interaction.customId.startsWith('perm_deny:'))) {
             const modRole = await getConfig(interaction.guild.id, 'mod_role');
             const isAdmin = interaction.member.permissions.has('Administrator');
@@ -616,7 +706,6 @@ client.on("interactionCreate", async (interaction) => {
                 return;
             }
 
-            // Approve / Одобряване
             const { pool } = require('./utilities/db');
             const shipsRes = await pool.query('SELECT * FROM ships WHERE guild_id = $1 AND ship_key = $2', [interaction.guild.id, shipKey]);
             if (shipsRes.rows.length === 0) {
@@ -643,19 +732,15 @@ client.on("interactionCreate", async (interaction) => {
     }
 });
 
-// MODERATION LOGGER — ✅ MULTI-SERVER: get channel from config / взима от конфига
 client.on(Events.GuildAuditLogEntryCreate, async (auditLog, guild) => {
     const { action, executorId, targetId, reason, changes } = auditLog;
-    // ✅ Get channel from the SPECIFIC server's config / Взимаме от конфига
     const logChannel = await getChannel(guild, 'admin_log_channel');
     if (!logChannel) return;
 
     try {
-        // Fetch users safely — unknown/deleted users won't crash the bot
-        // Взимаме потребителите безопасно — изтрити профили няма да сринат бота
         const executor = await client.users.fetch(executorId).catch(() => null);
         const target = await client.users.fetch(targetId).catch(() => null);
-        if (!executor || !target) return; // Skip if user not found / Пропускаме ако не е намерен
+        if (!executor || !target) return; 
 
         if (action === AuditLogEvent.MemberBanAdd) {
             const banEmbed = new EmbedBuilder()
@@ -695,7 +780,6 @@ client.on(Events.GuildAuditLogEntryCreate, async (auditLog, guild) => {
     } catch (err) { console.error("Mod Log Error:", err.message); }
 });
 
-// LEAVE & KICK LOGGER — ✅ MULTI-SERVER / МУЛТИ-СЪРВЪР
 client.on(Events.GuildMemberRemove, async (member) => {
     const logChannel = await getChannel(member.guild, 'admin_log_channel');
     if (!logChannel) return;
@@ -729,7 +813,6 @@ client.on(Events.GuildMemberRemove, async (member) => {
     await logChannel.send({ embeds: [leaveEmbed] }).catch(() => {});
 });
 
-// Global error handlers to prevent crashes / Глобални error handlers
 process.on('unhandledRejection', (reason, promise) => {
     console.error('⚠️ Unhandled Rejection:', reason?.message || reason);
 });

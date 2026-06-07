@@ -26,6 +26,12 @@ const FLAG_TO_LANGUAGE = {
     '🇮🇸': 'Icelandic', '🇵🇭': 'Filipino',
 };
 
+// ISO mapping за Lingva детекцията (за да изписваме красиви имена на езиците)
+const ISO_TO_LANG_NAME = {
+    'fr': 'French', 'es': 'Spanish', 'it': 'Italian', 'de': 'German',
+    'pl': 'Polish', 'bg': 'Bulgarian', 'en': 'English', 'ru': 'Russian'
+};
+
 // Cooldowns to prevent spam / Cooldown против спам
 const flagCooldown = new Map();
 const autoTranslateCooldown = new Map();
@@ -76,9 +82,7 @@ async function lingvaTranslate(text, from = 'auto', to = 'en') {
 function initTranslateSystem(client) {
 
     // ─────────────────────────────────────────────
-    // 1. FLAG REACTION TRANSLATOR (Groq/LLaMA)
-    // Превод с флаг реакция — само реагиралият вижда
-    // Изчезва след 2 минути
+    // 1. FLAG REACTION TRANSLATOR (Lingva Detector + Groq Expert)
     // ─────────────────────────────────────────────
     client.on('messageReactionAdd', async (reaction, user) => {
         if (user.bot) return;
@@ -89,8 +93,8 @@ function initTranslateSystem(client) {
         if (enabled !== 'true') return;
 
         const flag = reaction.emoji.name;
-        const language = FLAG_TO_LANGUAGE[flag];
-        if (!language) return;
+        const targetLanguage = FLAG_TO_LANGUAGE[flag];
+        if (!targetLanguage) return;
 
         // Fetch partial reactions/messages / Зареждаме partial обекти
         if (reaction.partial) {
@@ -110,19 +114,20 @@ function initTranslateSystem(client) {
         setTimeout(() => flagCooldown.delete(cooldownKey), COOLDOWN_MS);
 
         try {
-            // Езици, за които изискваме супер прецизен и естествен чат превод
-            const highPriorityLanguages = ['Spanish', 'French', 'Italian', 'German', 'Polish'];
-            
-            let systemPrompt = `You are an expert translator. Translate the user's chat message into fluent, natural-sounding ${language}. Return ONLY the final translated text. Do not include any explanations, greetings, or quotes.`;
-            
-            // Ако дестинационният език е от приоритетните, активираме тежките контекстни инструкции
-            if (highPriorityLanguages.includes(language)) {
-                systemPrompt = `You are an expert translator specializing in casual internet slang, chat context, idioms, and nuances. 
-Translate the user's message into fluent, natural, and modern ${language}. 
-- IMPORTANT: Do NOT translate literally word-for-word. Focus on the actual social meaning, context, and tone (e.g., if it contains French slang like 'grave', translate it as 'seriously/very' instead of 'grave/heavy').
-- Keep the original emotion, humor, slang, and casual chat style perfectly intact.
-- Return ONLY the final translated text, with absolutely no notes, commentary, introduction, or quotation marks.`;
-            }
+            // Стъпка 1: Използваме супер бързата Lingva само за да разберем СЪС СИГУРНОСТ оригиналния език
+            const lingvaDetect = await lingvaTranslate(messageContent, 'auto', 'en');
+            const sourceIso = lingvaDetect?.detectedLanguage || 'auto';
+            const sourceLanguage = ISO_TO_LANG_NAME[sourceIso] || 'the original language';
+
+            // Стъпка 2: Подаваме на Groq точния контекст (от кой към кой език се превежда)
+            const systemPrompt = `You are a professional, elite slang-accurate translator. 
+Your task is to translate a chat message from ${sourceLanguage} into native, context-aware, and natural-sounding ${targetLanguage}.
+
+RULES:
+1. NEVER translate word-for-word (literally). Focus heavily on the modern internet slang, idioms, and actual meaning used in casual chat rooms.
+2. If the message uses casual emphasis or structural slang (like French 'grave mieux', Spanish 'de locos', German 'voll gut'), adapt it into an equivalent natural slang in ${targetLanguage}.
+3. Keep the original text's tone, emotion, capitalization, and casual vibe exactly as it is.
+4. Output ONLY the raw translated text. Do not wrap it in quotes, do not write explanations, and do not include any introductions.`;
 
             const result = await groq.chat.completions.create({
                 messages: [
@@ -138,7 +143,7 @@ Translate the user's message into fluent, natural, and modern ${language}.
 
             // Send in channel — auto-deletes after 2 minutes / Изпраща в канала, изтрива след 2 мин
             const tempMsg = await reaction.message.channel.send(
-                `${flag} <@${user.id}> **Translation to ${language}:**\n> ${translated}`
+                `${flag} <@${user.id}> **Translation to ${targetLanguage}:**\n> ${translated}`
             );
             setTimeout(() => tempMsg.delete().catch(() => {}), 2 * 60 * 1000);
 
@@ -149,9 +154,6 @@ Translate the user's message into fluent, natural, and modern ${language}.
 
     // ─────────────────────────────────────────────
     // 2. AUTO TRANSLATE TO ENGLISH (Lingva)
-    // Авто-превод на не-английски съобщения → английски
-    // Ползва Lingva (Google Translate backend, без rate limits)
-    // Появява се под оригиналното съобщение, не изчезва
     // ─────────────────────────────────────────────
     client.on('messageCreate', async (message) => {
         if (message.author.bot) return;

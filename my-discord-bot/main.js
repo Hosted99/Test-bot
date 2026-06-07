@@ -2,7 +2,7 @@ const Groq = require("groq-sdk");
 const { Client, GatewayIntentBits, EmbedBuilder, Events, AuditLogEvent } = require("discord.js");
 const path = require('path'); 
 const cron = require('node-cron');
-const https = require('https'); // Добавено за VirusTotal API заявките
+const https = require('https'); // Заявки към VirusTotal API
 const shipSystem = require('./utilities/ship.js');
 const { pool, initDB } = require("./utilities/db");
 const { initGuildConfigTable, getConfig, setConfig, getAllConfig, getChannel, getRole, preloadAllConfigs } = require("./utilities/guildConfig");
@@ -21,6 +21,7 @@ const memeSystem = require('./utilities/meme.js');
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 const translationCooldown = new Set();
 
+// Изчистване на съдържанието на съобщението от линкове, емоджита и специални символи
 function cleanDiscordContent(content) {
     if (!content) return "";
     const cleaned = content
@@ -38,11 +39,11 @@ function checkLinkWithVirusTotal(urlToCheck) {
     return new Promise((resolve) => {
         const apiKey = process.env.VIRUSTOTAL_API_KEY;
         if (!apiKey) {
-            console.error("⚠️ VIRUSTOTAL_API_KEY липсва в .env файла! Всички линкове се приемат за безопасни.");
+            console.error("⚠️ VIRUSTOTAL_API_KEY is missing in .env file! All links are considered safe by default.");
             return resolve(true); 
         }
 
-        // Превръщаме URL адреса в Base64 без запълващи '=' символи (както изисква VirusTotal v3)
+        // Превръщане на URL адреса в Base64 без запълващи '=' символи (както изисква VirusTotal v3)
         const urlId = Buffer.from(urlToCheck).toString('base64').replace(/=/g, '');
 
         const options = {
@@ -64,23 +65,23 @@ function checkLinkWithVirusTotal(urlToCheck) {
                         const json = JSON.parse(data);
                         const stats = json.data.attributes.last_analysis_stats;
                         
-                        // Ако има дори 1 глас за malicious или suspicious, блокираме линка
+                        // Ако има дори 1 глас за malicious или suspicious, линкът е опасен
                         if (stats.malicious > 0 || stats.suspicious > 0) {
                             return resolve(false); 
                         }
                     } else if (res.statusCode === 404) {
-                        console.log(`ℹ️ Линка не е намерен в базата на VirusTotal, приема се за безопасен.`);
+                        console.log(`ℹ️ Link not found in VirusTotal database, accepted as safe.`);
                     }
                     resolve(true); 
                 } catch (e) {
-                    console.error("Грешка при парсване на VirusTotal отговор:", e.message);
+                    console.error("Error parsing VirusTotal response:", e.message);
                     resolve(true); 
                 }
             });
         });
 
         req.on('error', (err) => {
-            console.error("VirusTotal API грешка:", err.message);
+            console.error("VirusTotal API error:", err.message);
             resolve(true);
         });
 
@@ -88,6 +89,7 @@ function checkLinkWithVirusTotal(urlToCheck) {
     });
 }
 
+// Конфигуриране на Discord клиента и неговите Intents
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds, 
@@ -99,6 +101,7 @@ const client = new Client({
     ]
 });
 
+// Създаване на елементарен HTTP сървър за мониторинг (напр. за платформи като Render)
 const http = require('http');
 const port = process.env.PORT || 10000;
 http.createServer((req, res) => {
@@ -107,6 +110,7 @@ http.createServer((req, res) => {
 }).listen(port);
 console.log(`Monitoring server started on port ${port}`);
 
+// Инициализиране на базата данни и стартиране на бота
 async function startSystem() {
     try {
         await initDB();
@@ -118,16 +122,19 @@ async function startSystem() {
     }
 }
 
+// Събитие при успешна готовност на бота
 client.once("clientReady", async () => {
     initSchedulers(client, pool);
     levelingSystem(client, { pool });
     initTranslateSystem(client); 
     console.log(`🤖 Online as: ${client.user.tag}`);
 
+    // Кеширане на потребителите във всички сървъри
     client.guilds.cache.forEach(guild => {
         guild.members.fetch().then(() => console.log(`✅ Cached members for: ${guild.name}`));
     });
 
+    // Планирано събитие (Cron Job) за Belly Rush панела всеки вторник и петък в 10:00
     cron.schedule('00 10 * * 2,5', async () => {
         client.guilds.cache.forEach(async (guild) => {
             const targetChannel = await getChannel(guild, 'belly_rush_channel');
@@ -142,34 +149,39 @@ client.once("clientReady", async () => {
         });
     }, { timezone: "Europe/London" });
 
+    // Изпращане на системно съобщение за статус "Online" в конфигурирания канал на всеки сървър
     client.guilds.cache.forEach(async (guild) => {
-        await sendBotManual(guild).catch(err => console.log("Грешка при Manual msg:", err.message));
+        await sendBotManual(guild).catch(err => console.log("Error sending manual msg:", err.message));
 
         const botChannel = await getChannel(guild, 'bot_status_channel');
         if (botChannel) {
             const aliveEmbed = new EmbedBuilder()
                 .setTitle("📡 System Status: Online")
-                .setDescription("🏴‍☠️ **The Captain is back on the deck!**\nAll systems are operational and the seas are under watch..")
+                .setDescription("🏴‍☠️ **The Captain is back on the deck!**\nAll systems are operational and the seas are under watch.")
                 .setColor("#00ff00")
                 .setTimestamp();
-            await botChannel.send({ embeds: [aliveEmbed] }).catch(err => console.log("Грешка при Alive msg:", err.message));
+            await botChannel.send({ embeds: [aliveEmbed] }).catch(err => console.log("Error sending alive msg:", err.message));
         }
     });
 });
 
+// Логване на единично изтрито съобщение
 client.on("messageDelete", async (message) => {
     await logDeletedMessage(message);
 });
 
+// Логване при масово изтриване на съобщения
 client.on("messageDeleteBulk", async (messages) => {
     console.log(`[Log] Bulk delete: ${messages.size} messages`);
 });
 
+// Събитие при влизане на нов потребител в сървъра
 client.on("guildMemberAdd", async (member) => {
-    console.log(`📡 Нов потребител влезе: ${member.user.tag}`);
+    console.log(`📡 New user joined: ${member.user.tag}`);
     await handleNewMember(member);
 });
 
+// Основно събитие за обработка на текстови съобщения
 client.on("messageCreate", async (msg) => {
 
     if (msg.guild) {
@@ -178,6 +190,7 @@ client.on("messageCreate", async (msg) => {
         const protectedUsersRaw = await getConfig(msg.guild.id, 'protected_users');
         const PROTECTED_USERS = protectedUsersRaw ? protectedUsersRaw.split(',') : [];
 
+        // Защита срещу споменавания (Mentions) на администратори в забранени канали чрез Slash команди
         if (restrictedChannelId && msg.channel.id === restrictedChannelId) {
             const isSlashCommand = msg.interaction !== null;
             const mentionedProtected = PROTECTED_USERS.filter(id => msg.mentions.users.has(id));
@@ -222,14 +235,14 @@ client.on("messageCreate", async (msg) => {
             const author = msg.author;
             const member = msg.member;
 
-            // 1. Изтриваме оригиналното съобщение на секундата
+            // 1. Изтриване на оригиналното съобщение на момента
             await msg.delete().catch(() => {});
 
-            // 2. Пускаме проверка в VirusTotal в заден план
+            // 2. Проверка в VirusTotal в заден план
             const isSafe = await checkLinkWithVirusTotal(foundLinks[0]);
 
             if (isSafe) {
-                // 3. Търсим съществуващ Webhook на бота в този канал или създаваме нов
+                // 3. Търсене или създаване на Webhook за препращане на безопасния линк от името на потребителя
                 const webhooks = await msg.channel.fetchWebhooks().catch(() => null);
                 let webhook = webhooks ? webhooks.find(wh => wh.name === "CaptainLinkScanner") : null;
 
@@ -237,48 +250,48 @@ client.on("messageCreate", async (msg) => {
                     webhook = await msg.channel.createWebhook({
                         name: 'CaptainLinkScanner',
                         avatar: client.user.displayAvatarURL(),
-                        reason: 'Необходим за препращане на проверени сигурни линкове.'
-                    }).catch(err => console.error("Не можах да създам Webhook в канала:", err.message));
+                        reason: 'Required for forwarding scanned safe links.'
+                    }).catch(err => console.error("Could not create Webhook in channel:", err.message));
                 }
 
                 if (webhook) {
-                    // Изпращаме оригиналния текст маскиран с профила на потребителя
+                    // Изпращане на съобщението, маскирано с профила на оригиналния потребител
                     await webhook.send({
                         content: originalContent,
                         username: member ? member.displayName : author.username,
                         avatarURL: author.displayAvatarURL({ dynamic: true })
                     });
                 } else {
-                    // Резервен вариант в случай, че липсват права за Webhook
-                    await msg.channel.send(`✅ **Сигурен линк от ${author}:**\n${originalContent}`);
+                    // Резервен вариант при липса на права за Webhook
+                    await msg.channel.send(`✅ **Safe link from ${author}:**\n${originalContent}`);
                 }
             } else {
-                // Линкът е опасен (Malicious / Phishing)
-                const warningMsg = await msg.channel.send(`❌ ${author}, съобщението ти беше блокирано автоматично, тъй като съдържа вредоносен или фишинг линк!`);
-                setTimeout(() => warningMsg.delete().catch(() => {}), 10000); // Почистваме предупреждението след 10 сек
+                // Предупреждение при засичане на опасен или фишинг линк
+                const warningMsg = await msg.channel.send(`❌ ${author}, your message was automatically blocked because it contains a malicious or phishing link!`);
+                setTimeout(() => warningMsg.delete().catch(() => {}), 10000); // Почистване след 10 секунди
 
-                // Логваме опита за фишинг в администраторския канал на сървъра
+                // Логване на инцидента в администраторския канал
                 const adminLogChannelId = await getConfig(msg.guild.id, 'admin_log_channel');
                 if (adminLogChannelId) {
                     const logChannel = msg.guild.channels.cache.get(adminLogChannelId);
                     if (logChannel) {
                         const alertEmbed = new EmbedBuilder()
                             .setColor('#ff0000')
-                            .setTitle('🚨 Засечена Кибер Заплаха (Опасен Линк)')
+                            .setTitle('🚨 Cyber Threat Detected (Dangerous Link)')
                             .addFields(
-                                { name: 'Потребител:', value: `${author.tag} (\`${author.id}\`)`, inline: true },
-                                { name: 'Канал:', value: `<#${msg.channel.id}>`, inline: true },
-                                { name: 'Хванат линк:', value: `\`${foundLinks[0]}\`` },
-                                { name: 'Пълно съобщение:', value: `\`\`\`${originalContent}\`\`\`` }
+                                { name: 'User:', value: `${author.tag} (\`${author.id}\`)`, inline: true },
+                                { name: 'Channel:', value: `<#${msg.channel.id}>`, inline: true },
+                                { name: 'Detected Link:', value: `\`${foundLinks[0]}\`` },
+                                { name: 'Full Message Content:', value: `\`\`\`${originalContent}\`\`\`` }
                             )
                             .setTimestamp();
                         await logChannel.send({ embeds: [alertEmbed] }).catch(() => {});
                     }
                 }
             }
-            return; // Спираме по-нататъшната обработка на съобщението
+            return; // Спиране на по-нататъшната обработка
         } catch (err) {
-            console.error("Критична грешка в Линк Скенера:", err.message);
+            console.error("Critical error in Link Scanner:", err.message);
         }
     }
     // =================================================================
@@ -287,11 +300,13 @@ client.on("messageCreate", async (msg) => {
 
     const lowerContent = msg.content.toLowerCase().trim();
 
+    // Обработка на специфични команди за Mania
     if (lowerContent.startsWith("mania-plan")) return await handleManiaPlan(msg);
     if (lowerContent.startsWith("mania-list")) return await handleManiaList(msg);
     if (lowerContent.startsWith("mania-dm")) return await handleManiaDM(msg);
     if (lowerContent.startsWith("mania-strategy")) return await handleManiaStrategy(msg, pool);
 
+    // Обработка на стандартни текстови команди, започващи с "!"
     if (msg.content.startsWith("!")) {
         const content = msg.content.trim();
         const args = content.split(/\s+/);
@@ -308,7 +323,7 @@ client.on("messageCreate", async (msg) => {
                 await shipSystem.sendShipPanelDirect(targetChannel);
                 return await msg.delete().catch(() => {});
             } else {
-                return msg.reply("❌ Error: belly_rush_channel не е конфигуриран. Използвай `!setconfig belly_rush_channel <channel_id>`");
+                return msg.reply("❌ Error: `belly_rush_channel` is not configured. Use `!setconfig belly_rush_channel <channel_id>`");
             }
         }
 
@@ -319,28 +334,28 @@ client.on("messageCreate", async (msg) => {
             const key = args[0];
             const value = args[1];
             if (!key || !value) {
-                return msg.reply("❌ Format: `!setconfig <ключ> <стойност>`\n\nAvailable keys:\n" +
-                "`level_up_channel` — канал за level-up\n" +
-                "`log_channel` — канал за XP логове\n" +
-                "`stats_channel` — канал за !top\n" +
-                "`admin_log_channel` — канал за мод логове\n" +
-                "`welcome_channel` — канал за нови членове\n" +
-                "`belly_rush_channel` — канал за Belly Rush\n" +
-                "`reminders_channel` — канал за напомняния\n" +
-                "`repair_channel` — канал за repair-ship\n" +
-                "`translator_channel` — канал за AI превод\n" +
-                "`bot_status_channel` — канал за Online/Offline статус\n" +
-                "`bot_info_channel` — канал за мануала с командите\n" +
-                "`unit_build_channel` — канал за !hero команди\n" +
-                "`bounty_channel` — канал за !wanted плакати\n" +
-                "`rookies_role` — роля за нови членове\n" +
-                "`player_role` — роля след верификация\n" +
-                "`mod_role` — роля за модератори\n" +
-                "`restricted_channel` — канал с ограничения за менции\n" +
-                "`protected_users` — защитени потребители (id1,id2)\n" +
-                "`bday_channel` — канал за birthday съобщения\n" +
-                "`bday_user` — user ID за birthday\n" +
-                "`mania_main_channel` — главен канал за Mania известия (опционален)");
+                return msg.reply("❌ Format: `!setconfig <key> <value>`\n\nAvailable keys:\n" +
+                "`level_up_channel` — channel for level-ups\n" +
+                "`log_channel` — channel for XP logs\n" +
+                "`stats_channel` — channel for !top leaderboards\n" +
+                "`admin_log_channel` — channel for moderation logs\n" +
+                "`welcome_channel` — channel for new members\n" +
+                "`belly_rush_channel` — channel for Belly Rush panels\n" +
+                "`reminders_channel` — channel for reminders\n" +
+                "`repair_channel` — channel for ship-repairs\n" +
+                "`translator_channel` — channel for AI translation\n" +
+                "`bot_status_channel` — channel for Online/Offline status\n" +
+                "`bot_info_channel` — channel for bot command manuals\n" +
+                "`unit_build_channel` — channel for !hero commands\n" +
+                "`bounty_channel` — channel for !wanted posters\n" +
+                "`rookies_role` — role for new members\n" +
+                "`player_role` — role given after verification\n" +
+                "`mod_role` — role for moderators\n" +
+                "`restricted_channel` — channel with mention restrictions\n" +
+                "`protected_users` — protected user IDs (id1,id2)\n" +
+                "`bday_channel` — channel for birthday messages\n" +
+                "`bday_user` — user ID for birthday tracking\n" +
+                "`mania_main_channel` — main channel for Mania notifications (optional)");
             }
             await setConfig(msg.guild.id, key, value, msg.guild.name);
             return msg.reply(`✅ Configuration saved: \`${key}\` = \`${value}\``);
@@ -353,7 +368,7 @@ client.on("messageCreate", async (msg) => {
             const config = await getAllConfig(msg.guild.id);
             const entries = Object.entries(config);
             if (entries.length === 0) {
-                return msg.reply("⚠️ No configuration for this server. Use `!setconfig <ключ> <стойност>`");
+                return msg.reply("⚠️ No configuration found for this server. Use `!setconfig <key> <value>`");
             }
             const configText = entries.map(([k, v]) => `\`${k}\`: \`${v}\``).join('\n');
             const configEmbed = new EmbedBuilder()
@@ -369,7 +384,7 @@ client.on("messageCreate", async (msg) => {
             const storedPassword = process.env.TRANSLATE_PASSWORD;
             console.log(`[Translate] inputPassword: "${inputPassword}", storedPassword: "${storedPassword}", match: ${inputPassword === storedPassword}`);
             if (!storedPassword) {
-                return msg.reply('❌ TRANSLATE_PASSWORD not set in .env!');
+                return msg.reply('❌ TRANSLATE_PASSWORD is not set in .env!');
             }
             if (inputPassword !== storedPassword) {
                 return msg.reply(`❌ Wrong password! Got: "${inputPassword}"`);
@@ -387,7 +402,7 @@ client.on("messageCreate", async (msg) => {
         if (cmd === "!auto-translate-enable") {
             const inputPassword = args[0];
             const storedPassword = process.env.TRANSLATE_PASSWORD;
-            if (!storedPassword) return msg.reply('❌ TRANSLATE_PASSWORD not set in .env!');
+            if (!storedPassword) return msg.reply('❌ TRANSLATE_PASSWORD is not set in .env!');
             if (inputPassword !== storedPassword) {
                 return msg.reply('❌ Wrong password!')
                     .then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
@@ -410,7 +425,7 @@ client.on("messageCreate", async (msg) => {
             const planChannelId = mentionedChannels[0]?.id;
             const notifyChannelId = mentionedChannels[1]?.id;
             if (!key || !roleId || !planChannelId) {
-                return msg.reply("❌ Usage: `!mania-addguild <key> @role #plan-channel #notify-channel`\nExample: `!mania-addguild ts @ThousandSunny #mania-strategy #general`\n\n• `#plan-channel` — каналът където се гласува\n• `#notify-channel` — каналът където всички виждат известието");
+                return msg.reply("❌ Usage: `!mania-addguild <key> @role #plan-channel #notify-channel`\nExample: `!mania-addguild ts @ThousandSunny #mania-strategy #general`\n\n• `#plan-channel` — channel where users vote\n• `#notify-channel` — channel where everyone sees the notification");
             }
             await setConfig(msg.guild.id, `mania_role_${key}`, roleId, msg.guild.name);
             await setConfig(msg.guild.id, `mania_plan_channel_${key}`, planChannelId, msg.guild.name);
@@ -455,29 +470,29 @@ client.on("messageCreate", async (msg) => {
             const config = await getAllConfig(msg.guild.id);
 
             const allKeys = [
-                { key: "level_up_channel",         desc: "Level-up съобщения",          type: "channel" },
-                { key: "log_channel",               desc: "XP логове",                   type: "channel" },
-                { key: "stats_channel",             desc: "!top класация",               type: "channel" },
-                { key: "admin_log_channel",         desc: "Модерация логове",            type: "channel" },
-                { key: "welcome_channel",           desc: "Нови членове",                type: "channel" },
-                { key: "belly_rush_channel",        desc: "Belly Rush панел",            type: "channel" },
-                { key: "belly_rush_roles_channel",  desc: "!want команди",               type: "channel" },
-                { key: "reminders_channel",         desc: "Напомняния",                  type: "channel" },
-                { key: "repair_channel",            desc: "Repair-ship",                 type: "channel" },
-                { key: "translator_channel",        desc: "AI Преводач",                 type: "channel" },
-                { key: "bot_status_channel",        desc: "Online/Offline статус",       type: "channel" },
-                { key: "bot_info_channel",          desc: "Мануал с командите",          type: "channel" },
-                { key: "unit_build_channel",        desc: "!hero команди",               type: "channel" },
-                { key: "bounty_channel",            desc: "!wanted плакати",             type: "channel" },
-                { key: "rules_channel",             desc: "Правила (welcome msg)",       type: "channel" },
+                { key: "level_up_channel",         desc: "Level-up messages",          type: "channel" },
+                { key: "log_channel",               desc: "XP logs",                   type: "channel" },
+                { key: "stats_channel",             desc: "!top leaderboard",          type: "channel" },
+                { key: "admin_log_channel",         desc: "Moderation logs",            type: "channel" },
+                { key: "welcome_channel",           desc: "New members chat",           type: "channel" },
+                { key: "belly_rush_channel",        desc: "Belly Rush panel",            type: "channel" },
+                { key: "belly_rush_roles_channel",  desc: "!want commands",               type: "channel" },
+                { key: "reminders_channel",         desc: "Reminders notifications",     type: "channel" },
+                { key: "repair_channel",            desc: "Repair-ship deck",            type: "channel" },
+                { key: "translator_channel",        desc: "AI Translator room",          type: "channel" },
+                { key: "bot_status_channel",        desc: "Online/Offline status",       type: "channel" },
+                { key: "bot_info_channel",          desc: "Command manuals channel",     type: "channel" },
+                { key: "unit_build_channel",        desc: "!hero commands arena",        type: "channel" },
+                { key: "bounty_channel",            desc: "!wanted posters board",       type: "channel" },
+                { key: "rules_channel",             desc: "Rules (welcome msg)",       type: "channel" },
                 { key: "general_channel",           desc: "General chat (welcome msg)",  type: "channel" },
-                { key: "rookies_role",              desc: "Роля за нови членове",        type: "role" },
-                { key: "player_role",               desc: "Роля след верификация",       type: "role" },
-                { key: "mod_role",                  desc: "Роля за модератори",          type: "role" },
-                { key: "restricted_channel",        desc: "Канал с менции ограничения",  type: "channel" },
-                { key: "protected_users",           desc: "Защитени потребители",        type: "text" },
-                { key: "bday_channel",              desc: "Birthday канал",              type: "channel", optional: true },
-                { key: "bday_user",                 desc: "Birthday потребител",         type: "text",    optional: true },
+                { key: "rookies_role",              desc: "Role for newcomers",        type: "role" },
+                { key: "player_role",               desc: "Role after verification",       type: "role" },
+                { key: "mod_role",                  desc: "Role for moderators",          type: "role" },
+                { key: "restricted_channel",        desc: "Channel with mention blocks",  type: "channel" },
+                { key: "protected_users",           desc: "Protected users list",        type: "text" },
+                { key: "bday_channel",              desc: "Birthday channel",              type: "channel", optional: true },
+                { key: "bday_user",                 desc: "Birthday tracking user",         type: "text",    optional: true },
             ];
 
             const { EmbedBuilder } = require("discord.js");
@@ -506,17 +521,18 @@ client.on("messageCreate", async (msg) => {
                     configured.push(`✅ Mania Guild: **${gKey.toUpperCase()}**`);
                 });
             } else {
-                missing.push(`❌ Mania гилдии — използвай \`!mania-addguild\``);
+                missing.push(`❌ Mania Guilds — use \`!mania-addguild\``);
             }
 
             const { pool } = require("./utilities/db");
             const shipsRes = await pool.query("SELECT ship_name FROM ships WHERE guild_id = $1", [msg.guild.id]);
             if (shipsRes.rows.length > 0) {
-                configured.push(`✅ Кораби: ${shipsRes.rows.map(r => `**${r.ship_name}**`).join(", ")}`);
+                configured.push(`✅ Ships: ${shipsRes.rows.map(r => `**${r.ship_name}**`).join(", ")}`);
             } else {
-                missing.push(`❌ Кораби — използвай \`!ship-add <name> <emoji> @role\``);
+                missing.push(`❌ Ships — use \`!ship-add <name> <emoji> @role\``);
             }
 
+            // Спомагателна функция за разделяне на големи полета в Embed съобщението
             const splitFields = (arr, title) => {
                 const fields = [];
                 let chunk = "";
@@ -532,8 +548,8 @@ client.on("messageCreate", async (msg) => {
             };
 
             const description = missing.length === 0
-                ? "🎉 **Всичко е configured! Ботът е готов за работа.**"
-                : `⚠️ **${missing.length} настройки missingт.** Използвай \`!setconfig <key> <value>\` to add them.`;
+                ? "🎉 **Everything is configured! The bot is ready for action.**"
+                : `⚠️ **${missing.length} settings are missing.** Use \`!setconfig <key> <value>\` to add them.`;
 
             const levelingStatus = config['leveling_enabled'];
             const translateStatus = config['flag_translate_enabled'];
@@ -581,6 +597,7 @@ client.on("messageCreate", async (msg) => {
     const specialHandled = await handleSpecialChannels(msg, pool);
     if (specialHandled) return;
 
+    // ИИ Преводач система в определен канал
     const translatorChannelId = await getConfig(msg.guild.id, 'translator_channel');
     const isTranslatorChannel = translatorChannelId 
         ? msg.channel.id === translatorChannelId 
@@ -641,6 +658,7 @@ client.on("messageCreate", async (msg) => {
         return;
     }
     
+    // Пасхалка за лека нощ (Good night)
     const nightRegex = /\b(good night|nighty night)\b/i;
     if (nightRegex.test(msg.content.toLowerCase())) {
         const nightEmbed = new EmbedBuilder()
@@ -651,6 +669,7 @@ client.on("messageCreate", async (msg) => {
         return msg.reply({ embeds: [nightEmbed] });
     }
 
+    // Пасхалка за добро утро (Good morning)
     const morningRegex = /\b(good morning|добро утро)\b/i;
     if (morningRegex.test(msg.content.toLowerCase())) {
         const morningGifs = [
@@ -668,6 +687,7 @@ client.on("messageCreate", async (msg) => {
     }
 });
 
+// Събитие при добавяне на емоджи реакция към съобщенията (за Маnia формата)
 client.on('messageReactionAdd', async (reaction, user) => {
     if (user.bot) return;
     const maniaEmojis = ['✅', '❌', '⏳'];
@@ -682,8 +702,10 @@ client.on('messageReactionAdd', async (reaction, user) => {
     }
 });
 
+// Обработка на бутони и други интеракции в Discord
 client.on("interactionCreate", async (interaction) => {
     try {
+        // Одобряване или отхвърляне на перманентен екипаж (Permanent Crew) от модератори
         if (interaction.isButton() && (interaction.customId.startsWith('perm_approve:') || interaction.customId.startsWith('perm_deny:'))) {
             const modRole = await getConfig(interaction.guild.id, 'mod_role');
             const isAdmin = interaction.member.permissions.has('Administrator');
@@ -732,6 +754,7 @@ client.on("interactionCreate", async (interaction) => {
     }
 });
 
+// Слушател за Одит Дневника (Audit Logs) — Банове и Тайм-аути
 client.on(Events.GuildAuditLogEntryCreate, async (auditLog, guild) => {
     const { action, executorId, targetId, reason, changes } = auditLog;
     const logChannel = await getChannel(guild, 'admin_log_channel');
@@ -742,6 +765,7 @@ client.on(Events.GuildAuditLogEntryCreate, async (auditLog, guild) => {
         const target = await client.users.fetch(targetId).catch(() => null);
         if (!executor || !target) return; 
 
+        // При перманентен бан
         if (action === AuditLogEvent.MemberBanAdd) {
             const banEmbed = new EmbedBuilder()
                 .setColor('#d63031')
@@ -757,6 +781,7 @@ client.on(Events.GuildAuditLogEntryCreate, async (auditLog, guild) => {
             return logChannel.send({ embeds: [banEmbed] });
         }
 
+        // При налагане на Тайм-аут (Timeout)
         if (action === AuditLogEvent.MemberUpdate) {
             const timeoutChange = changes.find(c => c.key === 'communication_disabled_until');
             if (timeoutChange && timeoutChange.new) {
@@ -780,6 +805,7 @@ client.on(Events.GuildAuditLogEntryCreate, async (auditLog, guild) => {
     } catch (err) { console.error("Mod Log Error:", err.message); }
 });
 
+// Събитие при напускане на потребител (или изгонване - Kick)
 client.on(Events.GuildMemberRemove, async (member) => {
     const logChannel = await getChannel(member.guild, 'admin_log_channel');
     if (!logChannel) return;
@@ -792,6 +818,7 @@ client.on(Events.GuildMemberRemove, async (member) => {
     let description = `**${member.user.tag}** has left the crew. 🏴‍☠️`;
     let color = '#ff4b2b';
 
+    // Проверка дали напускането всъщност е Kick в последните 5 секунди
     if (kickLog && kickLog.target.id === member.id && (Date.now() - kickLog.createdTimestamp) < 5000) {
         title = 'Member Kicked';
         description = `**${member.user.tag}** was kicked from the crew by **${kickLog.executor.tag}**.`;
@@ -813,6 +840,7 @@ client.on(Events.GuildMemberRemove, async (member) => {
     await logChannel.send({ embeds: [leaveEmbed] }).catch(() => {});
 });
 
+// Глобално прихващане на грешки, за да не крашва бота
 process.on('unhandledRejection', (reason, promise) => {
     console.error('⚠️ Unhandled Rejection:', reason?.message || reason);
 });
@@ -825,4 +853,5 @@ client.on('error', (error) => {
     console.error('⚠️ Discord Client Error:', error.message);
 });
 
+// Стартиране на цялата система
 startSystem();

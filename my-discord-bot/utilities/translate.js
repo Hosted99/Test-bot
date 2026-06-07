@@ -154,8 +154,11 @@ function initTranslateSystem(client) {
             const result = await googleTranslate(cleanText, { to: 'en' });
 
             // Skip if already English / Пропускаме ако е английски
-            const detectedLang = result.raw?.[2];
-            if (detectedLang === 'en') return;
+            const from = result.raw?.[2] || result.from?.language?.iso || '';
+            if (!from || from === 'en') return;
+
+            // Skip if translation is identical to original / Пропускаме ако е същото
+            if (result.text.toLowerCase().trim() === cleanText.toLowerCase().trim()) return;
 
             await message.reply({
                 content: `🌐 **English:** ${result.text}`,

@@ -99,7 +99,7 @@ function initTranslateSystem(client) {
         }
     });
 
-    // ─────────────────────────────────────────────
+   // ─────────────────────────────────────────────
     // 2. AUTO TRANSLATE TO ENGLISH
     // Авто-превод на не-английски съобщения → английски
     // Появява се под оригиналното съобщение, не изчезва
@@ -150,28 +150,16 @@ function initTranslateSystem(client) {
         setTimeout(() => autoTranslateCooldown.delete(message.author.id), COOLDOWN_MS);
 
         try {
-            // Detect language first / Първо засичаме езика
-            const detection = await groq.chat.completions.create({
-                messages: [
-                    {
-                        role: "system",
-                        content: 'Detect the language of the text. If it is English, respond with {"isEnglish": true}. If NOT English, translate to English and respond ONLY with JSON: {"isEnglish": false, "translated": "..."}'
-                    },
-                    { role: "user", content: cleanText }
-                ],
-                model: "llama-3.3-70b-versatile",
-                response_format: { type: "json_object" },
-                max_tokens: 500
-            });
+            // Use Google Translate for auto-translate / Ползваме Google Translate
+            const result = await googleTranslate(cleanText, { to: 'en' });
 
-            const data = JSON.parse(detection.choices[0].message.content);
-            if (data.isEnglish || !data.translated) return;
+            // Skip if already English / Пропускаме ако е английски
+            const detectedLang = result.raw?.[2];
+            if (detectedLang === 'en') return;
 
-            // Reply to the original message with translation
-            // Отговаряме на оригиналното съобщение с превода
             await message.reply({
-                content: `🌐 **English:** ${data.translated}`,
-                allowedMentions: { repliedUser: false } // Don't ping the user / Не пингваме
+                content: `🌐 **English:** ${result.text}`,
+                allowedMentions: { repliedUser: false }
             });
 
         } catch (err) {

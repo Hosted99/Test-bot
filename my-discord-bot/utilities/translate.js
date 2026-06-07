@@ -195,3 +195,5 @@ function initTranslateSystem(client) {
 
     console.log('✅ Translation systems ready (flag: Groq, auto: Lingva) / Системите за превод са готови.');
 }
+
+module.exports = { initTranslateSystem };

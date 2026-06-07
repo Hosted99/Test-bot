@@ -49,8 +49,11 @@ async function lingvaTranslate(text, from = 'auto', to = 'en') {
     const encoded = encodeURIComponent(text);
     for (const instance of LINGVA_INSTANCES) {
         try {
-            const res = await fetch(`${instance}/api/v1/${from}/${to}/${encoded}`);
+            const res = await fetch(`${instance}/api/v1/${from}/${to}/${encoded}`, {
+                headers: { 'Accept': 'application/json' }
+            });
             if (!res.ok) continue;
+            
             const data = await res.json();
             if (data?.translation) {
                 return {
@@ -107,9 +110,23 @@ function initTranslateSystem(client) {
         setTimeout(() => flagCooldown.delete(cooldownKey), COOLDOWN_MS);
 
         try {
+            // Езици, за които изискваме супер прецизен и естествен чат превод
+            const highPriorityLanguages = ['Spanish', 'French', 'Italian', 'German', 'Polish'];
+            
+            let systemPrompt = `You are an expert translator. Translate the user's chat message into fluent, natural-sounding ${language}. Return ONLY the final translated text. Do not include any explanations, greetings, or quotes.`;
+            
+            // Ако дестинационният език е от приоритетните, активираме тежките контекстни инструкции
+            if (highPriorityLanguages.includes(language)) {
+                systemPrompt = `You are an expert translator specializing in casual internet slang, chat context, idioms, and nuances. 
+Translate the user's message into fluent, natural, and modern ${language}. 
+- IMPORTANT: Do NOT translate literally word-for-word. Focus on the actual social meaning, context, and tone (e.g., if it contains French slang like 'grave', translate it as 'seriously/very' instead of 'grave/heavy').
+- Keep the original emotion, humor, slang, and casual chat style perfectly intact.
+- Return ONLY the final translated text, with absolutely no notes, commentary, introduction, or quotation marks.`;
+            }
+
             const result = await groq.chat.completions.create({
                 messages: [
-                    { role: "system", content: `Translate the following text to ${language}. Return ONLY the translated text, nothing else.` },
+                    { role: "system", content: systemPrompt },
                     { role: "user", content: messageContent }
                 ],
                 model: "llama-3.3-70b-versatile",

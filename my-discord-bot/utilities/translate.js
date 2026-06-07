@@ -5,7 +5,6 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 // ─────────────────────────────────────────────
 // Flag emoji → language name mapping
-// Флаг емоджи → name на езика
 // ─────────────────────────────────────────────
 const FLAG_TO_LANGUAGE = {
     '🇧🇬': 'Bulgarian', '🇬🇧': 'English', '🇺🇸': 'English',
@@ -26,21 +25,18 @@ const FLAG_TO_LANGUAGE = {
     '🇮🇸': 'Icelandic', '🇵🇭': 'Filipino',
 };
 
-// ISO mapping за Lingva детекцията (за да изписваме красиви имена на езиците)
 const ISO_TO_LANG_NAME = {
     'fr': 'French', 'es': 'Spanish', 'it': 'Italian', 'de': 'German',
-    'pl': 'Polish', 'bg': 'Bulgarian', 'en': 'English', 'ru': 'Russian'
+    'pl': 'Polish', 'bg': 'Bulgarian', 'en': 'English', 'ru': 'Russian',
+    'uk': 'Ukrainian', 'ro': 'Romanian', 'tr': 'Turkish', 'zh': 'Chinese'
 };
 
-// Cooldowns to prevent spam / Cooldown против спам
 const flagCooldown = new Map();
 const autoTranslateCooldown = new Map();
 const COOLDOWN_MS = 5000;
 
-// Channels to skip for auto-translate / Канали без авто-превод
 const SKIP_CHANNEL_NAMES = ['ai-translator', 'bot-', 'admin', 'log', 'status'];
 
-// РАЗШИРЕН СПИСЪК СЪС СТАБИЛНИ LINGVA ИНСТАНЦИИ
 const LINGVA_INSTANCES = [
     'https://lingva.ml',
     'https://translate.plausibility.cloud',
@@ -52,16 +48,11 @@ const LINGVA_INSTANCES = [
     'https://lingva.no-logs.com'
 ];
 
-/**
- * Translate text using Lingva (Google Translate backend, no rate limits)
- * Превежда с Lingva — със светкавичен таймаут против забиване
- */
 async function lingvaTranslate(text, from = 'auto', to = 'en') {
     const encoded = encodeURIComponent(text);
     
     for (const instance of LINGVA_INSTANCES) {
         try {
-            // Прекратява заявката автоматично, ако инстанцията забие за повече от 1.5 секунди
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 1500);
 
@@ -82,27 +73,21 @@ async function lingvaTranslate(text, from = 'auto', to = 'en') {
                 };
             }
         } catch (e) {
-            // Ако инстанцията е бавна или офлайн, веднага преминава на следващата в списъка
             continue;
         }
     }
     return null;
 }
 
-/**
- * Initialize both translation systems
- * Инициализира двете системи за превод
- */
 function initTranslateSystem(client) {
 
     // ─────────────────────────────────────────────
-    // 1. FLAG REACTION TRANSLATOR (Lingva Detector + Groq Expert)
+    // 1. FLAG REACTION TRANSLATOR (Groq Expert)
     // ─────────────────────────────────────────────
     client.on('messageReactionAdd', async (reaction, user) => {
         if (user.bot) return;
         if (!reaction.message.guild) return;
 
-        // Check if flag translation is enabled / Проверяваме дали е активирано
         const enabled = await getConfig(reaction.message.guild.id, 'flag_translate_enabled');
         if (enabled !== 'true') return;
 
@@ -110,38 +95,30 @@ function initTranslateSystem(client) {
         const targetLanguage = FLAG_TO_LANGUAGE[flag];
         if (!targetLanguage) return;
 
-        // Fetch partial reactions/messages / Зареждаме partial обекти
-        if (reaction.partial) {
-            try { await reaction.fetch(); } catch { return; }
-        }
-        if (reaction.message.partial) {
-            try { await reaction.message.fetch(); } catch { return; }
-        }
+        if (reaction.partial) { try { await reaction.fetch(); } catch { return; } }
+        if (reaction.message.partial) { try { await reaction.message.fetch(); } catch { return; } }
 
         const messageContent = reaction.message.content;
         if (!messageContent || messageContent.trim().length === 0) return;
 
-        // Cooldown check / Проверка за cooldown
         const cooldownKey = `${reaction.message.id}:${user.id}:${flag}`;
         if (flagCooldown.has(cooldownKey)) return;
         flagCooldown.set(cooldownKey, true);
         setTimeout(() => flagCooldown.delete(cooldownKey), COOLDOWN_MS);
 
         try {
-            // Използваме бързата Lingva, за да разберем СЪС СИГУРНОСТ оригиналния език
             const lingvaDetect = await lingvaTranslate(messageContent, 'auto', 'en');
             const sourceIso = lingvaDetect?.detectedLanguage || 'auto';
             const sourceLanguage = ISO_TO_LANG_NAME[sourceIso] || 'the original language';
 
-            // Подаваме на Groq точния контекст
-            const systemPrompt = `You are a professional, elite slang-accurate translator. 
-Your task is to translate a chat message from ${sourceLanguage} into native, context-aware, and natural-sounding ${targetLanguage}.
+            const systemPrompt = `You are an expert multilingual translator specializing in casual internet slang, chat context, and idioms.
+Your task is to translate the user's message from ${sourceLanguage} into fluent, natural-sounding ${targetLanguage}.
 
-RULES:
-1. NEVER translate word-for-word (literally). Focus heavily on modern internet slang, idioms, and the actual meaning used in casual chat rooms.
-2. If the message uses casual emphasis or structural slang (like French 'grave mieux', Spanish 'de locos', German 'voll gut'), adapt it into an equivalent natural slang in ${targetLanguage}.
-3. Keep the original text's tone, emotion, capitalization, and casual vibe exactly as it is.
-4. Output ONLY the raw translated text. Do not wrap it in quotes, do not write explanations, and do not include any introductions.`;
+CRITICAL RULES:
+1. Do NOT translate literally word-for-word. Focus heavily on modern internet slang, context, and actual meaning.
+2. If the message uses casual emphasis or slang (like French 'grave mieux'), adapt it into an equivalent natural phrasing in ${targetLanguage}.
+3. Words like 'le traducteur', 'el traductor', 'the translator' refer to the translation tool/bot itself (IT), NOT a person (HE/SHE).
+4. Output ONLY the raw translated text without quotes or explanations.`;
 
             const result = await groq.chat.completions.create({
                 messages: [
@@ -155,7 +132,6 @@ RULES:
             const translated = result.choices[0].message.content.trim();
             if (!translated) return;
 
-            // Send in channel — auto-deletes after 2 minutes / Изпраща в канала, изтрива след 2 мин
             const tempMsg = await reaction.message.channel.send(
                 `${flag} <@${user.id}> **Translation to ${targetLanguage}:**\n> ${translated}`
             );
@@ -167,53 +143,43 @@ RULES:
     });
 
     // ─────────────────────────────────────────────
-    // 2. AUTO TRANSLATE TO ENGLISH (Lingva)
+    // 2. AUTO TRANSLATE TO ENGLISH (Безопасен и Оптимизиран)
     // ─────────────────────────────────────────────
     client.on('messageCreate', async (message) => {
         if (message.author.bot) return;
         if (!message.guild) return;
 
-        // Check if auto-translate is enabled / Проверяваме дали е активирано
         const autoEnabled = await getConfig(message.guild.id, 'auto_translate_enabled');
         if (autoEnabled !== 'true') return;
 
-        // Skip certain channels / Пропускаме определени канали
         const channelName = message.channel.name.toLowerCase();
         if (SKIP_CHANNEL_NAMES.some(skip => channelName.includes(skip))) return;
 
         const text = message.content?.trim();
-        if (!text || text.length < 5) return;
+        if (!text || text.length < 3) return; // Намалено на 3 символа, за да хваща кратки изрази
 
-        // Skip commands / Пропускаме команди
         if (text.startsWith('!') || text.startsWith('/')) return;
 
-        // Clean text / Почистваме текста
+        // ПОПРАВКА: Премахваме само линкове и споменавания, без да трием специфични чужди букви!
         const cleanText = text
-            .replace(/<[^>]+>/g, '')                     // remove mentions/channels
-            .replace(/https?:\/\/\S+/g, '')              // remove links
-            .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')      // remove emojis
-            .replace(/[^\p{L}\p{N}\s]/gu, ' ')           // keep only letters, numbers, spaces
+            .replace(/<[^>]+>/g, '')                     // маха тагове
+            .replace(/https?:\/\/\S+/g, '')              // маха линкове
             .trim();
-        if (!cleanText || cleanText.length < 5) return;
+            
+        if (!cleanText || cleanText.length < 3) return;
 
-        // Skip very short messages / Пропускаме много кратки съобщения
-        const wordCount = cleanText.split(/\s+/).filter(w => w.length > 0).length;
-        if (wordCount <= 2 && cleanText.length < 8) return;
-
-        // Cooldown per user / Cooldown per потребител
         if (autoTranslateCooldown.has(message.author.id)) return;
         autoTranslateCooldown.set(message.author.id, true);
         setTimeout(() => autoTranslateCooldown.delete(message.author.id), COOLDOWN_MS);
 
         try {
-            // Use Lingva for auto-translate / Ползваме Lingva
-            const result = await lingvaTranslate(cleanText);
+            const result = await lingvaTranslate(cleanText, 'auto', 'en');
             if (!result?.text) return;
 
-            // Skip if detected language is English / Пропускаме ако е английски
+            // Ако езикът е засечен като английски, пропускаме
             if (result.detectedLanguage === 'en') return;
 
-            // Skip if translation is identical to original / Пропускаме ако е същото
+            // Ако преводът съвпада изцяло с оригинала, пропускаме
             if (result.text.toLowerCase().trim() === cleanText.toLowerCase().trim()) return;
 
             await message.reply({
@@ -226,7 +192,7 @@ RULES:
         }
     });
 
-    console.log('✅ Translation systems ready (flag: Groq, auto: Lingva with 8 fallbacks) / Системите за превод са готови.');
+    console.log('✅ Systems fully updated and fixed.');
 }
 
 module.exports = { initTranslateSystem };

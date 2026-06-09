@@ -40,11 +40,13 @@ const COOLDOWN_MS = 5000;
 // Channels to skip for auto-translate / Канали без авто-превод
 const SKIP_CHANNEL_NAMES = ['ai-translator', 'bot-', 'admin', 'log', 'status'];
 
-// Lingva instances — fallback if one is down / Резервни инстанции
+// Повече инстанции за по-сигурна скорост
 const LINGVA_INSTANCES = [
     'https://lingva.ml',
     'https://translate.plausibility.cloud',
     'https://lingva.thedaviddelta.com',
+    'https://lingva.lunar.icu',
+    'https://lingva.seby.io'
 ];
 
 /**
@@ -55,9 +57,16 @@ async function lingvaTranslate(text, from = 'auto', to = 'en') {
     const encoded = encodeURIComponent(text);
     for (const instance of LINGVA_INSTANCES) {
         try {
+            // Оптимизация за скорост: Ако инстанцията се забави над 1 секунда, я режем
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 1000);
+
             const res = await fetch(`${instance}/api/v1/${from}/${to}/${encoded}`, {
-                headers: { 'Accept': 'application/json' }
+                headers: { 'Accept': 'application/json' },
+                signal: controller.signal
             });
+            
+            clearTimeout(timeoutId);
             if (!res.ok) continue;
             
             const data = await res.json();
@@ -68,7 +77,7 @@ async function lingvaTranslate(text, from = 'auto', to = 'en') {
                 };
             }
         } catch (e) {
-            // Try next instance / Пробваме следващата инстанция
+            // Пробваме следващата инстанция веднага
             continue;
         }
     }
@@ -202,10 +211,11 @@ RULES:
             // Skip if translation is identical to original / Пропускаме ако е същото
             if (result.text.toLowerCase().trim() === cleanText.toLowerCase().trim()) return;
 
-            await message.reply({
-                content: `🌐 **English:** ${result.text}`,
-                allowedMentions: { repliedUser: false }
-            });
+            // ОПРАВЕНО: Праща съобщение директно в канала вместо чупливия reply
+            await message.channel.send({
+                content: `🌐 <@${message.author.id}> **English:** ${result.text}`,
+                allowedMentions: { users: [] } // Предотвратява пингването, за да не е досадно
+            }).catch(e => console.error('Грешка при пращане:', e.message));
 
         } catch (err) {
             console.error('Auto translate error:', err.message);

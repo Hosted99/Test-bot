@@ -6,6 +6,7 @@
 //   - Enable with: !ai-enable <password>  (password = AI_PASSWORD in .env/Railway)
 //   - Disable with: !ai-disable  (Admin only)
 //   - Someone @mentions the bot → AI responds in character
+//   - If message contains a URL → bot fetches and reads the page
 //   - Remembers last 10 messages per user (per guild)
 //
 // SETUP:
@@ -13,6 +14,8 @@
 // ============================================================
 
 const Groq = require("groq-sdk");
+const https = require("https");
+const http = require("http");
 const { getConfig, setConfig } = require("./guildConfig");
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
@@ -26,13 +29,50 @@ You use pirate expressions naturally (e.g. "Yohohoho!", "Shishishi!", "Hah!", na
 You know about the One Piece world deeply — characters, islands, lore — and love to weave it into conversation.
 You are helpful and friendly, but always in character. Never break character.
 Keep responses concise — 2-4 sentences usually. Be fun and engaging.
-Always respond in English.`;
+Always respond in English.
+You CAN and SHOULD share links, URLs, and resources when asked. Never refuse to send a link.
+When given the content of a webpage, summarize or answer questions about it naturally in character.`;
+
+/**
+ * Fetch a URL and return plain text (strips HTML tags)
+ */
+function fetchUrl(url) {
+    return new Promise((resolve) => {
+        const lib = url.startsWith('https') ? https : http;
+        const req = lib.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, (res) => {
+            // Follow redirects
+            if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+                return resolve(fetchUrl(res.headers.location));
+            }
+            let data = '';
+            res.on('data', chunk => { data += chunk; if (data.length > 50000) req.destroy(); });
+            res.on('end', () => {
+                // Strip HTML tags and clean up whitespace
+                const text = data
+                    .replace(/<script[\s\S]*?<\/script>/gi, '')
+                    .replace(/<style[\s\S]*?<\/style>/gi, '')
+                    .replace(/<[^>]+>/g, ' ')
+                    .replace(/\s+/g, ' ')
+                    .trim()
+                    .slice(0, 3000); // max 3000 chars to stay within token limits
+                resolve(text);
+            });
+        });
+        req.on('error', () => resolve(null));
+        req.setTimeout(8000, () => { req.destroy(); resolve(null); });
+    });
+}
+
+/**
+ * Extract first URL from a string
+ */
+function extractUrl(text) {
+    const match = text.match(/https?:\/\/[^\s]+/);
+    return match ? match[0] : null;
+}
 
 /**
  * Handles @mention of the bot and responds with AI
- * @param {import('discord.js').Message} msg
- * @param {import('discord.js').Client} botClient
- * @returns {boolean} true if handled
  */
 async function handleAIMention(msg, botClient) {
     if (msg.author.bot || !msg.guild) return false;
@@ -79,10 +119,21 @@ async function handleAIMention(msg, botClient) {
     if (!conversationMemory.has(memKey)) conversationMemory.set(memKey, []);
     const history = conversationMemory.get(memKey);
 
-    history.push({ role: 'user', content: prompt });
-    while (history.length > MAX_HISTORY) history.shift();
-
     await msg.channel.sendTyping().catch(() => {});
+
+    // ── Check for URL in message ───────────────────────────
+    let finalPrompt = prompt;
+    const url = extractUrl(prompt);
+    if (url) {
+        await msg.channel.sendTyping().catch(() => {});
+        const pageContent = await fetchUrl(url);
+        if (pageContent) {
+            finalPrompt = `The user shared this link: ${url}\n\nPage content:\n${pageContent}\n\nUser's message: ${prompt.replace(url, '').trim() || 'What do you think of this?'}`;
+        }
+    }
+
+    history.push({ role: 'user', content: finalPrompt });
+    while (history.length > MAX_HISTORY) history.shift();
 
     try {
         const response = await groq.chat.completions.create({

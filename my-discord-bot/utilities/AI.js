@@ -6,6 +6,7 @@
 //   - Enable with: !ai-enable <password>  (password = AI_PASSWORD in .env/Railway)
 //   - Disable with: !ai-disable  (Admin only)
 //   - Someone @mentions the bot → AI responds in character
+//   - If message mentions a hero → fetches build info from the wiki
 //   - If message contains a URL → bot fetches and reads the page
 //   - Remembers last 10 messages per user (per guild)
 //
@@ -23,6 +24,8 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 const conversationMemory = new Map();
 const MAX_HISTORY = 10;
 
+const WIKI_BASE = "https://opking-of-sailing.fandom.com";
+
 const SYSTEM_PROMPT = `You are a legendary pirate sailing the Grand Line in the One Piece world. 
 You speak with the confidence of a seasoned sea dog — bold, adventurous, and occasionally dramatic. 
 You use pirate expressions naturally (e.g. "Yohohoho!", "Shishishi!", "Hah!", nautical terms, references to the sea, Devil Fruits, the All Blue, the One Piece treasure, the World Government, etc.).
@@ -31,30 +34,27 @@ You are helpful and friendly, but always in character. Never break character.
 Keep responses concise — 2-4 sentences usually. Be fun and engaging.
 Always respond in English.
 You CAN and SHOULD share links, URLs, and resources when asked. Never refuse to send a link.
+When given wiki content about a hero build, explain it clearly and helpfully in character — seals, devil fruits, haki order, equipment, tips.
 When given the content of a webpage, summarize or answer questions about it naturally in character.`;
 
-/**
- * Fetch a URL and return plain text (strips HTML tags)
- */
+// ── Fetch a URL and return plain text ─────────────────────
 function fetchUrl(url) {
     return new Promise((resolve) => {
         const lib = url.startsWith('https') ? https : http;
         const req = lib.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, (res) => {
-            // Follow redirects
             if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
                 return resolve(fetchUrl(res.headers.location));
             }
             let data = '';
-            res.on('data', chunk => { data += chunk; if (data.length > 50000) req.destroy(); });
+            res.on('data', chunk => { data += chunk; if (data.length > 80000) req.destroy(); });
             res.on('end', () => {
-                // Strip HTML tags and clean up whitespace
                 const text = data
                     .replace(/<script[\s\S]*?<\/script>/gi, '')
                     .replace(/<style[\s\S]*?<\/style>/gi, '')
                     .replace(/<[^>]+>/g, ' ')
                     .replace(/\s+/g, ' ')
                     .trim()
-                    .slice(0, 3000); // max 3000 chars to stay within token limits
+                    .slice(0, 4000);
                 resolve(text);
             });
         });
@@ -63,17 +63,70 @@ function fetchUrl(url) {
     });
 }
 
-/**
- * Extract first URL from a string
- */
+// ── Fetch a wiki page by title via Fandom API ─────────────
+async function fetchWikiPage(title) {
+    const apiUrl = `${WIKI_BASE}/api.php?action=query&titles=${encodeURIComponent(title)}&prop=revisions&rvprop=content&format=json&rvslots=main`;
+    const data = await fetchUrl(apiUrl);
+    if (!data) return null;
+
+    try {
+        const json = JSON.parse(data);
+        const pages = json.query?.pages;
+        if (!pages) return null;
+        const page = Object.values(pages)[0];
+        if (page.missing !== undefined) return null;
+        const content = page.revisions?.[0]?.slots?.main?.['*'] 
+                     || page.revisions?.[0]?.['*'];
+        if (!content) return null;
+        // Strip wiki markup a bit
+        return content
+            .replace(/\{\{[^}]*\}\}/g, '')
+            .replace(/\[\[([^\]|]+\|)?([^\]]+)\]\]/g, '$2')
+            .replace(/==+([^=]+)==+/g, '\n$1:\n')
+            .replace(/\n{3,}/g, '\n\n')
+            .slice(0, 3000);
+    } catch {
+        return null;
+    }
+}
+
+// ── Detect hero name in message ───────────────────────────
+const HERO_NAMES = [
+    'mihawk', 'blackbeard', 'kizaru', 'kaido', 'nika', 'zoro', 'akainu',
+    'shanks', 'uta', 'yamato', 'shirahoshi', 'bigmom', 'big mom', 'marco',
+    'garp', 'sengoku', 'enel', 'mars', 'saturn', 'rayleigh', 'oden',
+    'bullet', 'whitebeard', 'doffy', 'doflamingo', 'legend mihawk'
+];
+
+function detectHero(text) {
+    const lower = text.toLowerCase();
+    return HERO_NAMES.find(h => lower.includes(h)) || null;
+}
+
+// Map common names to wiki page titles
+const HERO_PAGE_MAP = {
+    'bigmom': 'Big Mom',
+    'big mom': 'Big Mom',
+    'doffy': 'Doflamingo',
+    'doflamingo': 'Doflamingo',
+    'blackbeard': 'Blackbeard',
+    'whitebeard': 'Whitebeard',
+    'legend mihawk': 'Legend Mihawk',
+    'akainu': 'Akainu',
+    'zoro': 'Zoro',
+};
+
+function heroToPageTitle(hero) {
+    return HERO_PAGE_MAP[hero] || (hero.charAt(0).toUpperCase() + hero.slice(1));
+}
+
+// ── Extract first URL from a string ──────────────────────
 function extractUrl(text) {
     const match = text.match(/https?:\/\/[^\s]+/);
     return match ? match[0] : null;
 }
 
-/**
- * Handles @mention of the bot and responds with AI
- */
+// ── Main handler ──────────────────────────────────────────
 async function handleAIMention(msg, botClient) {
     if (msg.author.bot || !msg.guild) return false;
 
@@ -121,16 +174,29 @@ async function handleAIMention(msg, botClient) {
 
     await msg.channel.sendTyping().catch(() => {});
 
-    // ── Check for URL in message ───────────────────────────
     let finalPrompt = prompt;
-    const url = extractUrl(prompt);
-    if (url) {
-        await msg.channel.sendTyping().catch(() => {});
-        const pageContent = await fetchUrl(url);
-        if (pageContent) {
-            finalPrompt = `The user shared this link: ${url}\n\nPage content:\n${pageContent}\n\nUser's message: ${prompt.replace(url, '').trim() || 'What do you think of this?'}`;
+    let extraContext = '';
+
+    // ── 1. Check for hero name → fetch wiki build page ─────
+    const hero = detectHero(prompt);
+    if (hero) {
+        const pageTitle = heroToPageTitle(hero);
+        const wikiContent = await fetchWikiPage(pageTitle);
+        if (wikiContent) {
+            extraContext = `\n\n[Wiki build info for ${pageTitle}]:\n${wikiContent}\n[End of wiki info]`;
         }
     }
+
+    // ── 2. Check for URL → fetch page content ──────────────
+    const url = extractUrl(prompt);
+    if (url && !hero) {
+        const pageContent = await fetchUrl(url);
+        if (pageContent) {
+            extraContext = `\n\n[Page content from ${url}]:\n${pageContent}\n[End of page content]`;
+        }
+    }
+
+    finalPrompt = prompt + extraContext;
 
     history.push({ role: 'user', content: finalPrompt });
     while (history.length > MAX_HISTORY) history.shift();
@@ -138,7 +204,7 @@ async function handleAIMention(msg, botClient) {
     try {
         const response = await groq.chat.completions.create({
             model: 'llama-3.3-70b-versatile',
-            max_tokens: 500,
+            max_tokens: 600,
             messages: [
                 { role: 'system', content: SYSTEM_PROMPT },
                 ...history
@@ -147,6 +213,8 @@ async function handleAIMention(msg, botClient) {
 
         const reply = response.choices[0]?.message?.content || "...the winds took me words, try again!";
 
+        // Store only the original prompt in history (not the wiki dump)
+        history[history.length - 1] = { role: 'user', content: prompt };
         history.push({ role: 'assistant', content: reply });
         while (history.length > MAX_HISTORY) history.shift();
 

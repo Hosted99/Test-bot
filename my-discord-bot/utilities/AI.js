@@ -63,31 +63,13 @@ function fetchUrl(url) {
     });
 }
 
-// ── Fetch a wiki page by title via Fandom API ─────────────
+// ── Fetch a wiki page by title via HTML ───────────────────
 async function fetchWikiPage(title) {
-    const apiUrl = `${WIKI_BASE}/api.php?action=query&titles=${encodeURIComponent(title)}&prop=revisions&rvprop=content&format=json&rvslots=main`;
-    const data = await fetchUrl(apiUrl);
-    if (!data) return null;
-
-    try {
-        const json = JSON.parse(data);
-        const pages = json.query?.pages;
-        if (!pages) return null;
-        const page = Object.values(pages)[0];
-        if (page.missing !== undefined) return null;
-        const content = page.revisions?.[0]?.slots?.main?.['*'] 
-                     || page.revisions?.[0]?.['*'];
-        if (!content) return null;
-        // Strip wiki markup a bit
-        return content
-            .replace(/\{\{[^}]*\}\}/g, '')
-            .replace(/\[\[([^\]|]+\|)?([^\]]+)\]\]/g, '$2')
-            .replace(/==+([^=]+)==+/g, '\n$1:\n')
-            .replace(/\n{3,}/g, '\n\n')
-            .slice(0, 3000);
-    } catch {
-        return null;
-    }
+    const pageUrl = `${WIKI_BASE}/wiki/${encodeURIComponent(title)}`;
+    const html = await fetchUrl(pageUrl);
+    if (!html) return null;
+    if (html.includes("doesn't seem to have a page") || html.includes('There is currently no text')) return null;
+    return html.slice(0, 4000);
 }
 
 // ── Detect hero name in message ───────────────────────────

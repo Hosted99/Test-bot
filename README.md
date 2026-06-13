@@ -1,6 +1,239 @@
 
 # 🏴‍☠️ Sailing Kingdom Bot — Наръчник / User Guide
 
+## 🇬🇧 ENGLISH
+
+### 🚀 Getting Started — New Server Setup
+
+**1. Enable Developer Mode**
+Settings → Advanced → Developer Mode → right-click channel/role → **Copy ID**
+
+**2. Full configuration (Admin only):**
+```
+!setconfig level_up_channel         <id>  ← channel for level-up messages
+!setconfig log_channel              <id>  ← channel for DB sync log
+!setconfig stats_channel            <id>  ← channel for !top leaderboard
+!setconfig admin_log_channel        <id>  ← channel for mod logs + crew approvals
+!setconfig welcome_channel          <id>  ← channel for new members
+!setconfig belly_rush_channel       <id>  ← channel for the Belly Rush panel
+!setconfig belly_rush_roles_channel <id>  ← channel for !want commands
+!setconfig reminders_channel        <id>  ← channel for reminders
+!setconfig repair_channel           <id>  ← channel for repair-ship commands
+!setconfig translator_channel       <id>  ← channel for two-way AI translator
+!setconfig bot_status_channel       <id>  ← channel for Online/Offline status
+!setconfig bot_info_channel         <id>  ← channel for the bot manual
+!setconfig unit_build_channel       <id>  ← channel for !hero commands
+!setconfig bounty_channel           <id>  ← channel for !wanted posters
+!setconfig rules_channel            <id>  ← rules channel (for welcome message)
+!setconfig general_channel          <id>  ← general chat (for welcome message)
+!setconfig rookies_role             <id>  ← role for new members (auto-created)
+!setconfig player_role              <id>  ← role after verification (auto-created)
+!setconfig mod_role                 <id>  ← moderator role
+!setconfig restricted_channel       <id>  ← channel with mention restrictions
+!setconfig protected_users     <id1,id2>  ← protected users (IDs separated by ,)
+!setconfig bday_channel             <id>  ← birthday channel (optional)
+!setconfig bday_user                <id>  ← birthday user ID (optional)
+```
+
+**3. Check what's missing:**
+```
+!checkconfig   ← configured ✅, missing ❌, system status 🟢/🔴
+!getconfig     ← all current values
+```
+
+> 💡 **Rookie** and **Player** roles are created automatically!
+
+---
+
+### 🎖️ Leveling & XP — Password Activation
+
+Disabled by default. Password provided only by the bot owner.
+
+```
+!leveling-enable <password>   ← activate XP for THIS server
+!leveling-disable             ← disable (Admin only)
+
+!rank       ← level and progress bar (auto-deletes after 60s)
+!top        ← Top 10 most active (Admin only)
+!sync       ← manually flush XP to database (Admin only)
+```
+
+---
+
+### 🌐 Translation Systems — Password Activation
+
+#### 1. Flag Reaction Translator
+React with a flag → translation in channel, disappears after 2 min.
+```
+!translate-enable <password>   ← activate for THIS server
+!translate-disable             ← disable (Admin only)
+```
+Supports 50+ languages. Works in **all channels**.
+
+#### 2. Auto-Translate Non-English Messages
+Non-English message → English translation below it. **Does not disappear.**
+```
+!auto-translate-enable <password>   ← activate for THIS server
+!auto-translate-disable             ← disable (Admin only)
+```
+Works in **all channels** except `#ai-translator` and admin channels.
+Ignores: `!` commands, very short messages, mostly Latin text.
+
+#### 3. AI Channel Translator (#translator_channel)
+For conversation between people speaking different languages.
+- Write in **any language** → translated to English
+- Reply in English → translates back to their language
+- Remembers language for 5 hours | Cooldown: 5 seconds
+
+---
+
+### ⚔️ Mania — Setup & Usage
+
+```
+!mania-addguild ts @ThousandSunny #mania-strategy #general
+!mania-guilds              ← list all guilds
+!mania-removeguild ts      ← remove a guild
+
+mania-plan ts / all        ← start plan with ✅ ❌ ⏳
+mania-list ts              ← show votes, ping missing members
+mania-dm ts                ← DM everyone who hasn't voted
+
+mania-strategy
+Kronos - @Luffy @Zoro      ← each line = one boss
+Hydra - @Nami @Sanji
+```
+
+---
+
+### 🚢 Belly Rush — Ships & Crew
+
+**Ship management (Admin):**
+```
+!ship-add Sunny ☀️ @mugi-role      ← add a ship
+!ship-remove Sunny                  ← remove a ship
+!ship-list                          ← view all ships and crews
+!ship-captain @Luffy Sunny         ← set permanent captain (never reset)
+!ship-uncaptain @Luffy             ← remove captain
+!setup                             ← manually send panel (auto Tue/Fri 10:00)
+```
+
+**Permanent crew:**
+```
+!want Sunny                        ← request permanent spot (requires Mod approval)
+!ship-addpermanent @user Sunny     ← add directly without approval (Mod/Admin)
+!ship-removepermanent @user        ← remove from permanent crew (Mod/Admin)
+!ship-listpermanent                 ← list all permanent crew members (Mod/Admin)
+```
+
+```
+> [!NOTE]
+> ### 💡 **Important Note on Permissions:**
+> In order for your moderators to use ship admin commands and the fleet reset button **without needing full Discord Administrator permissions**, you must first register your server's moderator role using:
+> `!setconfig mod_role <role-id>`
+    > The role must have the following Discord permissions enabled
+        > * View Channels
+        > * Manage Roles
+        > * Mention @everyone, @here, and All Roles
+    > The bot will automatically recognize members with this role as authorized managers for the fleet on a per-server basis!
+
+> 💡 When a user types `!want Sunny`, the bot sends a request to `admin_log_channel` with **✅ Approve** / **❌ Deny** buttons. A Mod or Admin clicks the button and the user gets a DM with the result.
+```
+---
+
+### ⚙️ Repair Ship
+
+Only in `repair_channel`. Only `repair @ship` is allowed.
+```
+!ship-addrepair Sunny {user} sails on fire!! 🔥   ← add a message
+!ship-repairs Sunny                                ← list all with IDs
+!ship-removerepair 1                               ← remove by ID
+repair @Sunny                                      ← usage (any member)
+```
+
+---
+
+### 💰 Bounty (Per-server)
+
+```
+!wanted / !wanted @user              ← Wanted poster
+!setbounty @user 500000000           ← set bounty (Mod/Admin)
+!resetbounty @user                   ← reset to ฿0 (Mod/Admin)
+```
+
+---
+
+### 🤖 AI Chat — Password Activation
+
+Disabled by default. Password provided only by the bot owner.
+
+```
+!ai-enable <password>   ← activate AI chat for THIS server
+!ai-disable             ← disable (Admin only)
+```
+
+Once enabled, **@mention the bot** anywhere to chat with it!
+
+```
+@Bot what's the strongest Devil Fruit?   ← ask anything
+@Bot tell me about the Grand Line        ← One Piece lore
+@Bot yo what's up                        ← just vibe
+```
+
+> 💡 The bot responds **in character** as a One Piece pirate — in English.
+> It remembers the last 10 messages per user during the session.
+
+---
+
+### ⚔️ Heroes (only in unit_build_channel)
+
+```
+!hero-list              ← all available heroes
+!hero mihawk            ← full build guide
+!hero luffy-cultiv1     ← Culti V1 variant
+```
+
+---
+
+### ⏰ Reminders
+
+```
+!remind 0 21 * * * Raid!   ← every day at 21:00
+!reminders                  ← your reminders
+!allreminders               ← all reminders
+!delete <id>                ← delete by ID
+!cron                       ← cron format guide
+```
+
+---
+
+### 🛂 New Member Verification
+
+1. New user joins → **Rookie** role (automatic)
+2. Clicks **"Nickname"** → enters nickname with guild tag
+3. Gets **Player** role and full server access
+
+---
+
+### 🧹 Moderation
+
+```
+!clear 50                  ← delete last 50 messages
+!say Ahoy!                 ← bot sends the message (command deleted)
+!sendto #channel Ahoy!     ← send to a specific channel
+!addrole @user Role        ← give a role
+!removerole @user Role     ← remove a role
+!addroleallts @role        ← give role to everyone with ᐪˢ☠️
+!addroleallgm @role        ← give role to everyone with ᴳᴹ☠️
+```
+
+---
+
+### 💬 Automatic Reactions
+
+```
+good night / nighty night  ← bot replies with a good night GIF
+good morning / добро утро  ← bot replies with a random good morning GIF
+```
 ---
 
 ## 🇧🇬 БЪЛГАРСКИ
@@ -163,6 +396,28 @@ repair @Sunny                                      ← използване (о�
 
 ---
 
+### 🤖 AI Чат — Активиране с парола
+
+Изключен по подразбиране. Паролата се дава само от собственика на бота.
+
+```
+!ai-enable <парола>   ← активира AI чата за ТОЗИ сървър
+!ai-disable           ← спира (само Админ)
+```
+
+След активиране, **тагни бота** навсякъде за да чатиш с него!
+
+```
+@Бот what's the strongest Devil Fruit?   ← питай каквото искаш
+@Бот tell me about the Grand Line        ← One Piece лор
+@Бот yo what's up                        ← просто си говори
+```
+
+> 💡 Ботът отговаря **в роля** на One Piece пират — на английски.
+> Помни последните 10 съобщения на всеки потребител по време на сесията.
+
+---
+
 ### ⚔️ Герои (само в unit_build_channel)
 
 ```
@@ -217,216 +472,7 @@ good morning / добро утро  ← добро утро GIF
 ---
 ---
 
-## 🇬🇧 ENGLISH
 
-### 🚀 Getting Started — New Server Setup
-
-**1. Enable Developer Mode**
-Settings → Advanced → Developer Mode → right-click channel/role → **Copy ID**
-
-**2. Full configuration (Admin only):**
-```
-!setconfig level_up_channel         <id>  ← channel for level-up messages
-!setconfig log_channel              <id>  ← channel for XP logs
-!setconfig stats_channel            <id>  ← channel for !top leaderboard
-!setconfig admin_log_channel        <id>  ← channel for mod logs + crew approvals
-!setconfig welcome_channel          <id>  ← channel for new members
-!setconfig belly_rush_channel       <id>  ← channel for the Belly Rush panel
-!setconfig belly_rush_roles_channel <id>  ← channel for !want commands
-!setconfig reminders_channel        <id>  ← channel for reminders
-!setconfig repair_channel           <id>  ← channel for repair-ship commands
-!setconfig translator_channel       <id>  ← channel for two-way AI translator
-!setconfig bot_status_channel       <id>  ← channel for Online/Offline status
-!setconfig bot_info_channel         <id>  ← channel for the bot manual
-!setconfig unit_build_channel       <id>  ← channel for !hero commands
-!setconfig bounty_channel           <id>  ← channel for !wanted posters
-!setconfig rules_channel            <id>  ← rules channel (for welcome message)
-!setconfig general_channel          <id>  ← general chat (for welcome message)
-!setconfig rookies_role             <id>  ← role for new members (auto-created)
-!setconfig player_role              <id>  ← role after verification (auto-created)
-!setconfig mod_role                 <id>  ← moderator role
-!setconfig restricted_channel       <id>  ← channel with mention restrictions
-!setconfig protected_users     <id1,id2>  ← protected users (IDs separated by ,)
-!setconfig bday_channel             <id>  ← birthday channel (optional)
-!setconfig bday_user                <id>  ← birthday user ID (optional)
-```
-
-**3. Check what's missing:**
-```
-!checkconfig   ← configured ✅, missing ❌, system status 🟢/🔴
-!getconfig     ← all current values
-```
-
-> 💡 **Rookie** and **Player** roles are created automatically!
-
----
-
-### 🎖️ Leveling & XP — Password Activation
-
-Disabled by default. Password provided only by the bot owner.
-
-```
-!leveling-enable <password>   ← activate XP for THIS server
-!leveling-disable             ← disable (Admin only)
-
-!rank       ← level and progress bar (auto-deletes after 60s)
-!top        ← Top 10 most active (Admin only)
-!sync       ← manually flush XP to database (Admin only)
-```
-
----
-
-### 🌐 Translation Systems — Password Activation
-
-#### 1. Flag Reaction Translator
-React with a flag → translation in channel, disappears after 2 min.
-```
-!translate-enable <password>   ← activate for THIS server
-!translate-disable             ← disable (Admin only)
-```
-Supports 50+ languages. Works in **all channels**.
-
-#### 2. Auto-Translate Non-English Messages
-Non-English message → English translation below it. **Does not disappear.**
-```
-!auto-translate-enable <password>   ← activate for THIS server
-!auto-translate-disable             ← disable (Admin only)
-```
-Works in **all channels** except `#ai-translator` and admin channels.
-Ignores: `!` commands, very short messages, mostly Latin text.
-
-#### 3. AI Channel Translator (#translator_channel)
-For conversation between people speaking different languages.
-- Write in **any language** → translated to English
-- Reply in English → translates back to their language
-- Remembers language for 5 hours | Cooldown: 5 seconds
-
----
-
-### ⚔️ Mania — Setup & Usage
-
-```
-!mania-addguild ts @ThousandSunny #mania-strategy #general
-!mania-guilds              ← list all guilds
-!mania-removeguild ts      ← remove a guild
-
-mania-plan ts / all        ← start plan with ✅ ❌ ⏳
-mania-list ts              ← show votes, ping missing members
-mania-dm ts                ← DM everyone who hasn't voted
-
-mania-strategy
-Kronos - @Luffy @Zoro      ← each line = one boss
-Hydra - @Nami @Sanji
-```
-
----
-
-### 🚢 Belly Rush — Ships & Crew
-
-**Ship management (Admin):**
-```
-!ship-add Sunny ☀️ @mugi-role      ← add a ship
-!ship-remove Sunny                  ← remove a ship
-!ship-list                          ← view all ships and crews
-!ship-captain @Luffy Sunny         ← set permanent captain (never reset)
-!ship-uncaptain @Luffy             ← remove captain
-!setup                             ← manually send panel (auto Tue/Fri 10:00)
-```
-
-**Permanent crew:**
-```
-!want Sunny                        ← request permanent spot (requires Mod approval)
-!ship-addpermanent @user Sunny     ← add directly without approval (Mod/Admin)
-!ship-removepermanent @user        ← remove from permanent crew (Mod/Admin)
-!ship-listpermanent                 ← list all permanent crew members (Mod/Admin)
-```
-
-```
-> 💡 **Important Note on Permissions:**
-> In order for your moderators to use ship admin commands and the fleet reset button **without needing full Discord Administrator permissions**, you must first register your server's moderator role using:
-> `!setconfig mod_role <role-id>`
-    > The role must have the following Discord permissions enabled
-        > * View Channels
-        > * Manage Roles
-        > * Mention @everyone, @here, and All Roles
-    > The bot will automatically recognize members with this role as authorized managers for the fleet on a per-server basis!
-
-> 💡 When a user types `!want Sunny`, the bot sends a request to `admin_log_channel` with **✅ Approve** / **❌ Deny** buttons. A Mod or Admin clicks the button and the user gets a DM with the result.
-```
----
-
-### ⚙️ Repair Ship
-
-Only in `repair_channel`. Only `repair @ship` is allowed.
-```
-!ship-addrepair Sunny {user} sails on fire!! 🔥   ← add a message
-!ship-repairs Sunny                                ← list all with IDs
-!ship-removerepair 1                               ← remove by ID
-repair @Sunny                                      ← usage (any member)
-```
-
----
-
-### 💰 Bounty (Per-server)
-
-```
-!wanted / !wanted @user              ← Wanted poster
-!setbounty @user 500000000           ← set bounty (Mod/Admin)
-!resetbounty @user                   ← reset to ฿0 (Mod/Admin)
-```
-
----
-
-### ⚔️ Heroes (only in unit_build_channel)
-
-```
-!hero-list              ← all available heroes
-!hero mihawk            ← full build guide
-!hero luffy-cultiv1     ← Culti V1 variant
-```
-
----
-
-### ⏰ Reminders
-
-```
-!remind 0 21 * * * Raid!   ← every day at 21:00
-!reminders                  ← your reminders
-!allreminders               ← all reminders
-!delete <id>                ← delete by ID
-!cron                       ← cron format guide
-```
-
----
-
-### 🛂 New Member Verification
-
-1. New user joins → **Rookie** role (automatic)
-2. Clicks **"Nickname"** → enters nickname with guild tag
-3. Gets **Player** role and full server access
-
----
-
-### 🧹 Moderation
-
-```
-!clear 50                  ← delete last 50 messages
-!say Ahoy!                 ← bot sends the message (command deleted)
-!sendto #channel Ahoy!     ← send to a specific channel
-!addrole @user Role        ← give a role
-!removerole @user Role     ← remove a role
-!addroleallts @role        ← give role to everyone with ᐪˢ☠️
-!addroleallgm @role        ← give role to everyone with ᴳᴹ☠️
-```
-
----
-
-### 💬 Automatic Reactions
-
-```
-good night / nighty night  ← bot replies with a good night GIF
-good morning / добро утро  ← bot replies with a random good morning GIF
-```
 
 ---
 
@@ -434,7 +480,6 @@ good morning / добро утро  ← bot replies with a random good morning G
 > Всичко е **per-сървър** и напълно независимо.
 > Everything is **per-server** and fully independent.
 >
-> 🔐 **Leveling, Flag Translate и Auto-Translate** се активират с парола от собственика на бота.
+> 🔐 **Leveling, Flag Translate, Auto-Translate и AI Chat** се активират с парола от собственика на бота.
 > 
-> 🔐 **Leveling, Flag Translate and Auto-Translate** are activated with a password from the bot owner.
-
+> 🔐 **Leveling, Flag Translate, Auto-Translate and AI Chat** are activated with a password from the bot owner.

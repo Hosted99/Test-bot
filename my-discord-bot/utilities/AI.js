@@ -89,34 +89,40 @@ async function fetchWikiPage(title) {
     }
 }
 
-// ── Detect hero name in message ───────────────────────────
-const HERO_NAMES = [
-    'mihawk', 'blackbeard', 'kizaru', 'kaido', 'nika', 'zoro', 'akainu',
-    'shanks', 'uta', 'yamato', 'shirahoshi', 'bigmom', 'big mom', 'marco',
-    'garp', 'sengoku', 'enel', 'mars', 'saturn', 'rayleigh', 'oden',
-    'bullet', 'whitebeard', 'doffy', 'doflamingo', 'legend mihawk'
-];
+// ── Common words to skip when searching wiki ─────────────
+const SKIP_WORDS = new Set([
+    'build', 'best', 'for', 'what', 'seal', 'seals', 'haki', 'fruit',
+    'tell', 'give', 'show', 'me', 'the', 'is', 'how', 'who', 'can',
+    'and', 'or', 'a', 'an', 'in', 'on', 'of', 'to', 'my', 'your',
+    'his', 'her', 'with', 'use', 'good', 'great', 'about', 'info',
+    'recommend', 'help', 'please', 'hey', 'hi', 'hello', 'jarvis',
+    'equipment', 'team', 'pvp', 'pve', 'vs', 'devil', 'awakening',
+    'should', 'i', 'do', 'need', 'want', 'get', 'have', 'are', 'be'
+]);
 
-function detectHero(text) {
-    const lower = text.toLowerCase();
-    return HERO_NAMES.find(h => lower.includes(h)) || null;
+// ── Extract potential hero names from message ─────────────
+function extractPotentialHeroes(text) {
+    const words = text.toLowerCase()
+        .replace(/[^a-z\s]/g, '')
+        .split(/\s+/)
+        .filter(w => w.length > 2 && !SKIP_WORDS.has(w));
+
+    // Also try two-word combos (e.g. "legend mihawk", "big mom")
+    const twoWords = [];
+    const arr = text.toLowerCase().split(/\s+/);
+    for (let i = 0; i < arr.length - 1; i++) {
+        const combo = arr[i] + ' ' + arr[i+1];
+        if (!SKIP_WORDS.has(arr[i]) || !SKIP_WORDS.has(arr[i+1])) {
+            twoWords.push(combo);
+        }
+    }
+
+    return [...twoWords, ...words];
 }
 
-// Map common names to wiki page titles
-const HERO_PAGE_MAP = {
-    'bigmom': 'Big Mom',
-    'big mom': 'Big Mom',
-    'doffy': 'Doflamingo',
-    'doflamingo': 'Doflamingo',
-    'blackbeard': 'Blackbeard',
-    'whitebeard': 'Whitebeard',
-    'legend mihawk': 'Legend Mihawk',
-    'akainu': 'Akainu',
-    'zoro': 'Zoro',
-};
-
-function heroToPageTitle(hero) {
-    return HERO_PAGE_MAP[hero] || (hero.charAt(0).toUpperCase() + hero.slice(1));
+// ── Capitalize for wiki page title ────────────────────────
+function toPageTitle(word) {
+    return word.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
 
 // ── Extract first URL from a string ──────────────────────
@@ -177,18 +183,25 @@ async function handleAIMention(msg, botClient) {
     let extraContext = '';
 
     // ── 1. Check for hero name → fetch wiki build page ─────
-    const hero = detectHero(prompt);
-    if (hero) {
-        const pageTitle = heroToPageTitle(hero);
-        const wikiContent = await fetchWikiPage(pageTitle);
-        if (wikiContent) {
-            extraContext = `\n\n[Wiki build info for ${pageTitle}]:\n${wikiContent}\n[End of wiki info]`;
+    const candidates = extractPotentialHeroes(prompt);
+    let wikiContent = null;
+    let foundTitle = null;
+    for (const candidate of candidates) {
+        const pageTitle = toPageTitle(candidate);
+        const result = await fetchWikiPage(pageTitle);
+        if (result) {
+            wikiContent = result;
+            foundTitle = pageTitle;
+            break;
         }
+    }
+    if (wikiContent) {
+        extraContext = `\n\n[Wiki build info for ${foundTitle}]:\n${wikiContent}\n[End of wiki info]`;
     }
 
     // ── 2. Check for URL → fetch page content ──────────────
     const url = extractUrl(prompt);
-    if (url && !hero) {
+    if (url && !wikiContent) {
         const pageContent = await fetchUrl(url);
         if (pageContent) {
             extraContext = `\n\n[Page content from ${url}]:\n${pageContent}\n[End of page content]`;

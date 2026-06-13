@@ -573,6 +573,13 @@ client.on("messageCreate", async (msg) => {
                     : '🔴 `auto_translate` — **Disabled** (use `!auto-translate-enable <password>` to activate)'
             );
 
+            const aiStatus = config['ai_enabled'];
+            configured.push(
+                aiStatus === 'true'
+                    ? '✅ `ai_chat` — 🟢 **Active** (AI responding to @mentions)'
+                    : '🔴 `ai_chat` — **Disabled** (use `!ai-enable <password>` to activate)'
+            );
+
             const embed = new EmbedBuilder()
                 .setTitle(`⚙️ Config Check — ${msg.guild.name}`)
                 .setDescription(description)

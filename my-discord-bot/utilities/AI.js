@@ -136,7 +136,9 @@ function extractPotentialHeroes(text) {
 
 // ── Capitalize for wiki page title ────────────────────────
 function toPageTitle(word) {
-    return word.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    return word.split(' ').map(w =>
+        w.split('-').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('-')
+    ).join(' ');
 }
 
 // ── Extract first URL from a string ──────────────────────

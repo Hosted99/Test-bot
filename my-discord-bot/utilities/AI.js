@@ -45,6 +45,7 @@ When given the content of a webpage, summarize or answer questions about it natu
 
 // ── Fetch a URL and return plain text ─────────────────────
 // ── Fetch a URL and return plain text (TABLE FRIENDLY) ─────────────────────
+// ── Fetch a URL and return plain text (FIXED FOR JSON & HTML) ─────────────
 function fetchUrl(url) {
     return new Promise((resolve) => {
         const lib = url.startsWith('https') ? https : http;
@@ -53,23 +54,27 @@ function fetchUrl(url) {
                 return resolve(fetchUrl(res.headers.location));
             }
             let data = '';
-            res.on('data', chunk => { data += chunk; if (data.length > 250000) req.destroy(); }); // Увеличено, за да хване целия HTML на големи страници
+            // Увеличаваме лимита на буфера, за да не режем големи страници по средата
+            res.on('data', chunk => { data += chunk; if (data.length > 500000) req.destroy(); });
             res.on('end', () => {
+                // АКО Е API ЗАЯВКА (JSON) -> Връщаме целия суров текст БЕЗ да го режем или чистим!
+                if (url.includes('api.php') || data.trim().startsWith('{')) {
+                    return resolve(data.trim());
+                }
+
+                // АКО Е ОБИКНОВЕНА СТРАНИЦА (HTML) -> Чистим и тогава режем
                 let text = data
                     .replace(/<script[\s\S]*?<\/script>/gi, '')
-                    .replace(/<style[\s\S]*?<\/style>/gi, '');
-
-                // Трансформираме таблиците в четим текстови формат преди да изтрием таговете
-                text = text
-                    .replace(/<\/td>/gi, ' | ')          // Разделяме клетките с вертикална черта
-                    .replace(/<\/tr>/gi, '\n')           // Всеки нов ред от таблицата отива на нов ред
-                    .replace(/<[^>]+>/g, ' ')            // Сега вече премахваме останалите HTML тагове
-                    .replace(/[ \t]+/g, ' ')             // Изчистваме излишните интервали, запазвайки новите редове
-                    .replace(/\n\s*\n+/g, '\n')          // Премахваме прекалено многото празни редове
+                    .replace(/<style[\s\S]*?<\/style>/gi, '')
+                    .replace(/<\/td>/gi, ' | ')          // Запазваме структурата на таблиците
+                    .replace(/<\/tr>/gi, '\n')           // Нови редове за таблиците
+                    .replace(/<[^>]+>/g, ' ')            // Махаме HTML таговете
+                    .replace(/[ \t]+/g, ' ')             // Махаме излишни интервали
+                    .replace(/\n\s*\n+/g, '\n')          // Сбиваме празните редове
                     .trim();
 
-                // Правим slice чак СЛЕД като сме премахнали тежкия HTML код, за да запазим важната инфо
-                resolve(text.slice(0, 5000)); 
+                // Чак сега режем чистия текст, за да влезе в лимита на AI-то
+                resolve(text.slice(0, 4500));
             });
         });
         req.on('error', () => resolve(null));

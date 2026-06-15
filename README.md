@@ -234,6 +234,37 @@ Once enabled, **@mention the bot** anywhere to chat with it!
 good night / nighty night  ← bot replies with a good night GIF
 good morning / добро утро  ← bot replies with a random good morning GIF
 ```
+
+---
+
+### 🛡️ Link / Phishing Protection (Automatic)
+
+Always on — no setup needed.
+- Every message containing a link is scanned via the VirusTotal API.
+- **Safe links** are kept (re-posted via webhook under the user's name).
+- **Malicious / phishing links** are deleted instantly and the user is warned.
+- Threat alerts are logged to `admin_log_channel`.
+
+> ⚠️ Note: detection relies on: 
++ VirusTotal
++ MetaDefender
++ Jotti's Malware 
++ Kaspersky Threat Intelligence Portal. 
+ > existing database, so brand-new domains it hasn't seen yet may pass. For specific domains you always want
+> blocked, add them to a local denylist.
+> Requires `API_KEY` in `.env` for all APIs (without it, all links pass).
+
+---
+
+### 🗑️ Moderation Logging (Automatic)
+
+Logged to `admin_log_channel`.
+- **Deleted messages** — author, who deleted it (via Audit Log), channel, content, attachments, original timestamp.
+- **Bulk deletes** — a `.txt` file with all deleted messages + who did it.
+- **Bans & timeouts** — responsible mod, target, reason, duration.
+
+> 💡 The bot needs the **View Audit Log** permission to detect *who* deleted a message. Self-deletes create no audit entry (Discord limitation), so they show as "self / unknown".
+
 ---
 
 ## 🇧🇬 БЪЛГАРСКИ
@@ -468,6 +499,30 @@ repair @Sunny                                      ← използване (о�
 good night / nighty night  ← лека нощ GIF
 good morning / добро утро  ← добро утро GIF
 ```
+
+---
+
+### 🛡️ Защита от линкове / фишинг (автоматична)
+
+Винаги включена — без настройка.
+- Всяко съобщение с линк се проверява през VirusTotal API.
+- **Безопасните линкове** остават (препращат се през webhook от името на потребителя).
+- **Зловредните / фишинг линкове** се трият веднага и потребителят се предупреждава.
+- Заплахите се логват в `admin_log_channel`.
+
+> ⚠️ Засичането разчита на базата на VirusTotal, така че съвсем нови домейни, които още не е виждал, може да минат. За конкретни домейни, които винаги искаш блокирани, се добавя локална денлиста.
+> Изисква `VIRUSTOTAL_API_KEY` в `.env` (без него всички линкове минават).
+
+---
+
+### 🗑️ Логване на модерация (автоматично)
+
+Логва се в `admin_log_channel`.
+- **Изтрити съобщения** — автор, кой го е изтрил (през Audit Log), канал, съдържание, прикачени файлове, време на пращане.
+- **Масово триене** — `.txt` файл с всички изтрити съобщения + кой го е направил.
+- **Банове и тайм-аути** — отговорен модератор, цел, причина, продължителност.
+
+> 💡 Ботът трябва да има право **View Audit Log**, за да засича *кой* е изтрил съобщение. При самостоятелно триене Discord не прави запис, така че се показва „сам / неизвестно".
 
 ---
 ---

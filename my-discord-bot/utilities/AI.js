@@ -221,9 +221,12 @@ async function handleAIMention(msg, botClient) {
     const candidates = extractPotentialHeroes(prompt);
     let wikiContent = null;
     let foundTitle = null;
+    console.log('[AI] Candidates:', candidates);
     for (const candidate of candidates) {
         const pageTitle = toPageTitle(candidate);
+        console.log('[AI] Trying wiki page:', pageTitle);
         const result = await fetchWikiPage(pageTitle);
+        console.log('[AI] Result:', result ? 'FOUND (' + result.length + ' chars)' : 'NOT FOUND');
         if (result) {
             wikiContent = result;
             foundTitle = pageTitle;

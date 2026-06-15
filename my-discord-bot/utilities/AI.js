@@ -84,29 +84,45 @@ async function fetchWikiPageAPI(title) {
     const data = await fetchUrl(apiUrl);
     console.log('[API RAW]', title, '->', data ? data.slice(0, 300) : 'NULL');
     if (!data) return null;
+    
     try {
         const json = JSON.parse(data);
         const pages = json.query?.pages;
         if (!pages) return null;
         const page = Object.values(pages)[0];
-        if (!page.pageid) return null; // truly missing pages have no pageid
+        if (!page || !page.pageid) return null; 
+        
         const rev = page.revisions?.[0];
-        const content = rev?.slots?.main?.['*'] 
-                     || rev?.['*']
-                     || rev?.slots?.main?.content;
+        // Подсигуряваме правилното извличане на текста от различните възможни структури на Fandom
+        let content = "";
+        if (rev?.slots?.main?.['*']) {
+            content = rev.slots.main['*'];
+        } else if (rev?.['*']) {
+            content = rev['*'];
+        } else if (rev?.slots?.main?.content) {
+            content = rev.slots.main.content;
+        }
+
         console.log('[API CONTENT]', title, '->', content ? content.slice(0, 100) : 'NULL');
-        if (!content) return null;
-        return content
-            .replace(/\{\{[^}]*\}\}/g, '')
+        if (!content || typeof content !== 'string') return null;
+
+        // Изчистване на тежкия Wikitext формат
+        const cleaned = content
+            .replace(/\{\{[\s\S]*?\}\}/g, '') // Премахва сложните инфобоксове/шаблони {{ }}
             .replace(/\[\[([^\]|]+\|)?([^\]]+)\]\]/g, '$2')
             .replace(/==+([^=]+)==+/g, '\n$1:\n')
             .replace(/\n{3,}/g, '\n\n')
-            .slice(0, 3000);
-    } catch {
-        return null;
+            .trim();
+
+        // Ако след почистването текстът е прекалено къс или празен, връщаме null, за да задействаме HTML бекъпа
+        if (cleaned.length < 50) return null;
+
+        return cleaned.slice(0, 3500);
+    } catch (err) {
+        console.error('[API ERROR] Грешка при парсване на API за:', title, err.message);
+        return null; // При грешка връща null, което автоматично ще пусне fetchWikiPageHTML
     }
 }
-
 // ── Fetch a wiki page via HTML (good for complex table pages) ──
 async function fetchWikiPageHTML(title) {
     const pageUrl = `${WIKI_BASE}/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`;

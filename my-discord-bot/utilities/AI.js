@@ -8,7 +8,7 @@
 //   - Someone @mentions the bot → AI responds in character
 //   - If message mentions a hero → fetches build info from the wiki
 //   - If message contains a URL → bot fetches and reads the page
-//   - Remembers last 10 messages per user (per guild)
+//   - Remembers last 4 messages per user (per guild) for optimal token use
 //
 // SETUP:
 //   Add to Railway Variables: AI_PASSWORD=yourpassword
@@ -22,7 +22,7 @@ const { getConfig, setConfig } = require("./guildConfig");
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 const conversationMemory = new Map();
-const MAX_HISTORY = 10;
+const MAX_HISTORY = 4; // Намалено на 4, за да пестим токени от стара история за 50 човека
 
 const WIKI_BASE = "https://opking-of-sailing.fandom.com";
 
@@ -36,16 +36,13 @@ Always respond in English.
 Laughter rules — use sparingly, only when it truly fits the moment:
 - "Shishishi!" — when something is genuinely funny or exciting (like Luffy)
 - "Yohohoho!" — when something is whimsical or you make a joke (like Brook)
-- "Ze hehehe..." — only when something is dark, dangerous, or ominous (like Blackbeard)
 Do NOT start every message with a laugh. Use them at most once per response, and only when it feels natural.
 
 You CAN and SHOULD share links, URLs, and resources when asked. Never refuse to send a link.
 When given wiki content about a hero build, explain it clearly and helpfully in character — seals, devil fruits, haki order, equipment, tips.
 When given the content of a webpage, summarize or answer questions about it naturally in character.`;
 
-// ── Fetch a URL and return plain text ─────────────────────
-// ── Fetch a URL and return plain text (TABLE FRIENDLY) ─────────────────────
-// ── Fetch a URL and return plain text (FIXED FOR JSON & HTML) ─────────────
+// ── Fetch a URL and return plain text (SMART FILTER FOR JSON & HTML) ──────
 function fetchUrl(url) {
     return new Promise((resolve) => {
         const lib = url.startsWith('https') ? https : http;
@@ -54,27 +51,42 @@ function fetchUrl(url) {
                 return resolve(fetchUrl(res.headers.location));
             }
             let data = '';
-            // Увеличаваме лимита на буфера, за да не режем големи страници по средата
+            // Голям буфер, за да не режем суровия JSON или тежкия HTML по средата
             res.on('data', chunk => { data += chunk; if (data.length > 500000) req.destroy(); });
             res.on('end', () => {
-                // АКО Е API ЗАЯВКА (JSON) -> Връщаме целия суров текст БЕЗ да го режем или чистим!
+                // АКО Е API ЗАЯВКА (JSON) -> Връщаме целия суров текст, за да не се чупи JSON.parse()
                 if (url.includes('api.php') || data.trim().startsWith('{')) {
                     return resolve(data.trim());
                 }
 
-                // АКО Е ОБИКНОВЕНА СТРАНИЦА (HTML) -> Чистим и тогава режем
+                // АКО Е HTML СТРАНИЦА -> Премахваме кода и филтрираме умните секции
                 let text = data
                     .replace(/<script[\s\S]*?<\/script>/gi, '')
-                    .replace(/<style[\s\S]*?<\/style>/gi, '')
-                    .replace(/<\/td>/gi, ' | ')          // Запазваме структурата на таблиците
-                    .replace(/<\/tr>/gi, '\n')           // Нови редове за таблиците
-                    .replace(/<[^>]+>/g, ' ')            // Махаме HTML таговете
-                    .replace(/[ \t]+/g, ' ')             // Махаме излишни интервали
-                    .replace(/\n\s*\n+/g, '\n')          // Сбиваме празните редове
+                    .replace(/<style[\s\S]*?<\/style>/gi, '') // Поправено от Claude (беше </script>)
+                    .replace(/<\/td>/gi, ' | ')          
+                    .replace(/<\/tr>/gi, '\n')           
+                    .replace(/<[^>]+>/g, ' ')            
+                    .replace(/[ \t]+/g, ' ')             
                     .trim();
 
-                // Чак сега режем чистия текст, за да влезе в лимита на AI-то
-                resolve(text.slice(0, 4500));
+                // 1. Взимаме базовото въведение (първите 1500 символа)
+                let compressedText = "=== OVERVIEW ===\n" + text.slice(0, 1500) + "\n\n";
+
+                // 2. Критични секции за плодове и герои, които търсим из цялата страница
+                const keyWords = ["awakening", "seals", "haki", "equipment", "build", "best team"];
+
+                // 3. Сканираме и изрязваме парчета от по 800 символа около ключовите думи
+                keyWords.forEach(word => {
+                    let index = text.toLowerCase().indexOf(word);
+                    if (index !== -1) {
+                        let sectionText = text.slice(index, index + 800);
+                        compressedText += `=== SECTION: ${word.toUpperCase()} ===\n...${sectionText}...\n\n`;
+                    }
+                });
+
+                // Почистваме излишните нови редове и пращаме сглобения текст
+                let finalData = compressedText.replace(/\n\s*\n+/g, '\n').trim();
+                resolve(finalData);
             });
         });
         req.on('error', () => resolve(null));
@@ -82,232 +94,6 @@ function fetchUrl(url) {
     });
 }
 
-
 // ── Fetch a wiki page via API (good for simple pages) ─────
 async function fetchWikiPageAPI(title) {
-    const apiUrl = `${WIKI_BASE}/api.php?action=query&titles=${encodeURIComponent(title)}&prop=revisions&rvprop=content&format=json&rvslots=main&redirects=1`;
-    const data = await fetchUrl(apiUrl);
-    console.log('[API RAW]', title, '->', data ? data.slice(0, 300) : 'NULL');
-    if (!data) return null;
-    
-    try {
-        const json = JSON.parse(data);
-        const pages = json.query?.pages;
-        if (!pages) return null;
-        const page = Object.values(pages)[0];
-        if (!page || !page.pageid) return null; 
-        
-        const rev = page.revisions?.[0];
-        // Подсигуряваме правилното извличане на текста от различните възможни структури на Fandom
-        let content = "";
-        if (rev?.slots?.main?.['*']) {
-            content = rev.slots.main['*'];
-        } else if (rev?.['*']) {
-            content = rev['*'];
-        } else if (rev?.slots?.main?.content) {
-            content = rev.slots.main.content;
-        }
-
-        console.log('[API CONTENT]', title, '->', content ? content.slice(0, 100) : 'NULL');
-        if (!content || typeof content !== 'string') return null;
-
-        // Изчистване на тежкия Wikitext формат
-        const cleaned = content
-            .replace(/\{\{[\s\S]*?\}\}/g, '') // Премахва сложните инфобоксове/шаблони {{ }}
-            .replace(/\[\[([^\]|]+\|)?([^\]]+)\]\]/g, '$2')
-            .replace(/==+([^=]+)==+/g, '\n$1:\n')
-            .replace(/\n{3,}/g, '\n\n')
-            .trim();
-
-        // Ако след почистването текстът е прекалено къс или празен, връщаме null, за да задействаме HTML бекъпа
-        if (cleaned.length < 50) return null;
-
-        return cleaned.slice(0, 3500);
-    } catch (err) {
-        console.error('[API ERROR] Грешка при парсване на API за:', title, err.message);
-        return null; // При грешка връща null, което автоматично ще пусне fetchWikiPageHTML
-    }
-}
-// ── Fetch a wiki page via HTML (good for complex table pages) ──
-async function fetchWikiPageHTML(title) {
-    const pageUrl = `${WIKI_BASE}/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`;
-    const html = await fetchUrl(pageUrl);
-    if (!html) return null;
-    if (html.includes("doesn't seem to have a page") || html.includes('There is currently no text')) return null;
-    // Check the page actually has content
-    if (html.length < 200) return null;
-    return html.slice(0, 4000);
-}
-
-// ── Try API first, fallback to HTML if tables are complex ──
-async function fetchWikiPage(title) {
-    const apiResult = await fetchWikiPageAPI(title);
-    if (apiResult) return apiResult;
-    return await fetchWikiPageHTML(title);
-}
-
-// ── Common words to skip when searching wiki ─────────────
-const SKIP_WORDS = new Set([
-    'build', 'best', 'for', 'what', 'seal', 'seals', 'haki', 'fruit',
-    'tell', 'give', 'show', 'me', 'the', 'is', 'how', 'who', 'can',
-    'and', 'or', 'a', 'an', 'in', 'on', 'of', 'to', 'my', 'your',
-    'his', 'her', 'with', 'use', 'good', 'great', 'about', 'info',
-    'recommend', 'help', 'please', 'hey', 'hi', 'hello', 'jarvis',
-    'equipment', 'team', 'pvp', 'pve', 'vs', 'devil', 'awakening',
-    'should', 'i', 'do', 'need', 'want', 'get', 'have', 'are', 'be'
-]);
-
-// ── Extract potential hero names from message ─────────────
-function extractPotentialHeroes(text) {
-    const lower = text.toLowerCase();
-
-    // Keep hyphenated words intact (e.g. "eleph-eleph" stays as one)
-    const words = lower
-        .replace(/[^a-z\s-]/g, '')
-        .split(/\s+/)
-        .filter(w => w.length > 2 && !SKIP_WORDS.has(w));
-
-    // Also try two-word combos (e.g. "legend mihawk", "big mom")
-    const twoWords = [];
-    const arr = lower.split(/\s+/);
-    for (let i = 0; i < arr.length - 1; i++) {
-        const combo = arr[i] + ' ' + arr[i+1];
-        if (!SKIP_WORDS.has(arr[i]) || !SKIP_WORDS.has(arr[i+1])) {
-            twoWords.push(combo);
-        }
-    }
-
-    // For hyphenated words, also try with " Fruit" suffix
-    const withFruit = words
-        .filter(w => w.includes('-'))
-        .map(w => w + ' fruit');
-
-    return [...twoWords, ...withFruit, ...words];
-}
-
-// ── Capitalize for wiki page title ────────────────────────
-function toPageTitle(word) {
-    return word.split(' ').map(w =>
-        w.split('-').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('-')
-    ).join(' ');
-}
-
-// ── Extract first URL from a string ──────────────────────
-function extractUrl(text) {
-    const match = text.match(/https?:\/\/[^\s]+/);
-    return match ? match[0] : null;
-}
-
-// ── Main handler ──────────────────────────────────────────
-async function handleAIMention(msg, botClient) {
-    if (msg.author.bot || !msg.guild) return false;
-
-    // ── !ai-enable <password> ──────────────────────────────
-    if (msg.content.toLowerCase().startsWith('!ai-enable')) {
-        const args = msg.content.trim().split(/\s+/);
-        const inputPassword = args[1];
-        const storedPassword = process.env.AI_PASSWORD;
-
-        if (!storedPassword) {
-            return msg.reply('❌ `AI_PASSWORD` not set in Railway Variables!').then(m => setTimeout(() => m.delete().catch(() => {}), 8000)), true;
-        }
-        if (inputPassword !== storedPassword) {
-            return msg.reply('❌ Wrong password!').then(m => setTimeout(() => m.delete().catch(() => {}), 5000)), true;
-        }
-
-        await setConfig(msg.guild.id, 'ai_enabled', 'true', msg.guild.name);
-        await msg.reply('✅ **AI system activated! Yohohoho! 🏴‍☠️**');
-        setTimeout(() => msg.delete().catch(() => {}), 3000);
-        return true;
-    }
-
-    // ── !ai-disable ────────────────────────────────────────
-    if (msg.content.toLowerCase().startsWith('!ai-disable')) {
-        if (!msg.member.permissions.has('Administrator')) return false;
-        await setConfig(msg.guild.id, 'ai_enabled', 'false', msg.guild.name);
-        await msg.reply('🔒 **AI system disabled.**');
-        setTimeout(() => msg.delete().catch(() => {}), 3000);
-        return true;
-    }
-
-    // ── Check if AI is enabled for this guild ──────────────
-    const aiEnabled = await getConfig(msg.guild.id, 'ai_enabled');
-    if (aiEnabled !== 'true') return false;
-
-    // ── Handle @mention ────────────────────────────────────
-    if (!msg.mentions.has(botClient.user)) return false;
-
-    const userText = msg.content.replace(/<@!?\d+>/g, '').trim();
-    const prompt = userText || 'Hello!';
-
-    const memKey = `${msg.guild.id}-${msg.author.id}`;
-    if (!conversationMemory.has(memKey)) conversationMemory.set(memKey, []);
-    const history = conversationMemory.get(memKey);
-
-    await msg.channel.sendTyping().catch(() => {});
-
-    let finalPrompt = prompt;
-    let extraContext = '';
-
-    // ── 1. Check for hero name → fetch wiki build page ─────
-    const candidates = extractPotentialHeroes(prompt);
-    let wikiContent = null;
-    let foundTitle = null;
-    console.log('[AI] Candidates:', candidates);
-    for (const candidate of candidates) {
-        const pageTitle = toPageTitle(candidate);
-        console.log('[AI] Trying wiki page:', pageTitle);
-        const result = await fetchWikiPage(pageTitle);
-        console.log('[AI] Result:', result ? 'FOUND (' + result.length + ' chars)' : 'NOT FOUND');
-        if (result) {
-            wikiContent = result;
-            foundTitle = pageTitle;
-            break;
-        }
-    }
-    if (wikiContent) {
-        extraContext = `\n\n[Wiki build info for ${foundTitle}]:\n${wikiContent}\n[End of wiki info]`;
-    }
-
-    // ── 2. Check for URL → fetch page content ──────────────
-    const url = extractUrl(prompt);
-    if (url && !wikiContent) {
-        const pageContent = await fetchUrl(url);
-        if (pageContent) {
-            extraContext = `\n\n[Page content from ${url}]:\n${pageContent}\n[End of page content]`;
-        }
-    }
-
-    finalPrompt = prompt + extraContext;
-
-    history.push({ role: 'user', content: finalPrompt });
-    while (history.length > MAX_HISTORY) history.shift();
-
-    try {
-        const response = await groq.chat.completions.create({
-            model: 'llama-3.1-8b-instant',
-            max_tokens: 600,
-            messages: [
-                { role: 'system', content: SYSTEM_PROMPT },
-                ...history
-            ],
-        });
-
-        const reply = response.choices[0]?.message?.content || "...the winds took me words, try again!";
-
-        // Store only the original prompt in history (not the wiki dump)
-        history[history.length - 1] = { role: 'user', content: prompt };
-        history.push({ role: 'assistant', content: reply });
-        while (history.length > MAX_HISTORY) history.shift();
-
-        await msg.reply(reply);
-        return true;
-
-    } catch (err) {
-        console.error('AI.js error:', err.message);
-        await msg.reply('⚓ Blimey! The winds of the Grand Line scrambled me thoughts... try again, sailor!');
-        return true;
-    }
-}
-
-module.exports = { handleAIMention };
+    const apiUrl = `${WIKI_BASE}/api.php?action=query&titles=${encodeURIComponent(title)}&prop=revisions&rvprop=content&format=json&rvslots=main&redirect

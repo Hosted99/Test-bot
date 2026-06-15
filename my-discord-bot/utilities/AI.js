@@ -83,8 +83,6 @@ async function fetchWikiPageAPI(title) {
         const content = page.revisions?.[0]?.slots?.main?.['*']
                      || page.revisions?.[0]?.['*'];
         if (!content) return null;
-        // Check if page has complex tables — if so return null to trigger HTML fallback
-        if ((content.match(/\{\|/g) || []).length > 1) return null;
         return content
             .replace(/\{\{[^}]*\}\}/g, '')
             .replace(/\[\[([^\]|]+\|)?([^\]]+)\]\]/g, '$2')

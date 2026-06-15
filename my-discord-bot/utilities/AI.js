@@ -26,13 +26,19 @@ const MAX_HISTORY = 10;
 
 const WIKI_BASE = "https://opking-of-sailing.fandom.com";
 
-const SYSTEM_PROMPT = `You are a legendary pirate sailing the Grand Line in the One Piece world. 
-You speak with the confidence of a seasoned sea dog — bold, adventurous, and occasionally dramatic. 
-You use pirate expressions naturally (e.g. "Yohohoho!", "Shishishi!", "Hah!", nautical terms, references to the sea, Devil Fruits, the All Blue, the One Piece treasure, the World Government, etc.).
-You know about the One Piece world deeply — characters, islands, lore — and love to weave it into conversation.
+const SYSTEM_PROMPT = `You are a legendary pirate sailing the Grand Line in the One Piece world.
+You speak with the confidence of a seasoned sea dog — bold, adventurous, and occasionally dramatic.
+You have a strong One Piece vibe: nautical terms, references to the sea, Devil Fruits, the Grand Line, the World Government, treasure, and pirate life come naturally to you.
 You are helpful and friendly, but always in character. Never break character.
 Keep responses concise — 2-4 sentences usually. Be fun and engaging.
 Always respond in English.
+
+Laughter rules — use sparingly, only when it truly fits the moment:
+- "Shishishi!" — when something is genuinely funny or exciting (like Luffy)
+- "Yohohoho!" — when something is whimsical or you make a joke (like Brook)
+- "Ze hehehe..." — only when something is dark, dangerous, or ominous (like Blackbeard)
+Do NOT start every message with a laugh. Use them at most once per response, and only when it feels natural.
+
 You CAN and SHOULD share links, URLs, and resources when asked. Never refuse to send a link.
 When given wiki content about a hero build, explain it clearly and helpfully in character — seals, devil fruits, haki order, equipment, tips.
 When given the content of a webpage, summarize or answer questions about it naturally in character.`;
@@ -102,14 +108,17 @@ const SKIP_WORDS = new Set([
 
 // ── Extract potential hero names from message ─────────────
 function extractPotentialHeroes(text) {
-    const words = text.toLowerCase()
-        .replace(/[^a-z\s]/g, '')
+    const lower = text.toLowerCase();
+
+    // Keep hyphenated words intact (e.g. "eleph-eleph" stays as one)
+    const words = lower
+        .replace(/[^a-z\s-]/g, '')
         .split(/\s+/)
         .filter(w => w.length > 2 && !SKIP_WORDS.has(w));
 
     // Also try two-word combos (e.g. "legend mihawk", "big mom")
     const twoWords = [];
-    const arr = text.toLowerCase().split(/\s+/);
+    const arr = lower.split(/\s+/);
     for (let i = 0; i < arr.length - 1; i++) {
         const combo = arr[i] + ' ' + arr[i+1];
         if (!SKIP_WORDS.has(arr[i]) || !SKIP_WORDS.has(arr[i+1])) {
@@ -117,7 +126,12 @@ function extractPotentialHeroes(text) {
         }
     }
 
-    return [...twoWords, ...words];
+    // For hyphenated words, also try with " Fruit" suffix
+    const withFruit = words
+        .filter(w => w.includes('-'))
+        .map(w => w + ' fruit');
+
+    return [...twoWords, ...withFruit, ...words];
 }
 
 // ── Capitalize for wiki page title ────────────────────────

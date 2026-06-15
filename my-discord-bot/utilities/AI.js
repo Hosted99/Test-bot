@@ -44,6 +44,7 @@ When given wiki content about a hero build, explain it clearly and helpfully in 
 When given the content of a webpage, summarize or answer questions about it naturally in character.`;
 
 // ── Fetch a URL and return plain text ─────────────────────
+// ── Fetch a URL and return plain text (TABLE FRIENDLY) ─────────────────────
 function fetchUrl(url) {
     return new Promise((resolve) => {
         const lib = url.startsWith('https') ? https : http;
@@ -52,22 +53,30 @@ function fetchUrl(url) {
                 return resolve(fetchUrl(res.headers.location));
             }
             let data = '';
-            res.on('data', chunk => { data += chunk; if (data.length > 80000) req.destroy(); });
+            res.on('data', chunk => { data += chunk; if (data.length > 250000) req.destroy(); }); // Увеличено, за да хване целия HTML на големи страници
             res.on('end', () => {
-                const text = data
+                let text = data
                     .replace(/<script[\s\S]*?<\/script>/gi, '')
-                    .replace(/<style[\s\S]*?<\/style>/gi, '')
-                    .replace(/<[^>]+>/g, ' ')
-                    .replace(/\s+/g, ' ')
-                    .trim()
-                    .slice(0, 4000);
-                resolve(text);
+                    .replace(/<style[\s\S]*?<\/style>/gi, '');
+
+                // Трансформираме таблиците в четим текстови формат преди да изтрием таговете
+                text = text
+                    .replace(/<\/td>/gi, ' | ')          // Разделяме клетките с вертикална черта
+                    .replace(/<\/tr>/gi, '\n')           // Всеки нов ред от таблицата отива на нов ред
+                    .replace(/<[^>]+>/g, ' ')            // Сега вече премахваме останалите HTML тагове
+                    .replace(/[ \t]+/g, ' ')             // Изчистваме излишните интервали, запазвайки новите редове
+                    .replace(/\n\s*\n+/g, '\n')          // Премахваме прекалено многото празни редове
+                    .trim();
+
+                // Правим slice чак СЛЕД като сме премахнали тежкия HTML код, за да запазим важната инфо
+                resolve(text.slice(0, 5000)); 
             });
         });
         req.on('error', () => resolve(null));
         req.setTimeout(8000, () => { req.destroy(); resolve(null); });
     });
 }
+
 
 // ── Fetch a wiki page via API (good for simple pages) ─────
 async function fetchWikiPageAPI(title) {

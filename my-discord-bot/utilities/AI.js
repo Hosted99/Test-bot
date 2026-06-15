@@ -80,7 +80,7 @@ async function fetchWikiPageAPI(title) {
         const pages = json.query?.pages;
         if (!pages) return null;
         const page = Object.values(pages)[0];
-        if (page.missing !== undefined) return null;
+        if (!page.pageid) return null; // truly missing pages have no pageid
         const rev = page.revisions?.[0];
         const content = rev?.slots?.main?.['*'] 
                      || rev?.['*']

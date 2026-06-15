@@ -81,8 +81,10 @@ async function fetchWikiPageAPI(title) {
         if (!pages) return null;
         const page = Object.values(pages)[0];
         if (page.missing !== undefined) return null;
-        const content = page.revisions?.[0]?.slots?.main?.['*']
-                     || page.revisions?.[0]?.['*'];
+        const rev = page.revisions?.[0];
+        const content = rev?.slots?.main?.['*'] 
+                     || rev?.['*']
+                     || rev?.slots?.main?.content;
         console.log('[API CONTENT]', title, '->', content ? content.slice(0, 100) : 'NULL');
         if (!content) return null;
         return content

@@ -69,23 +69,24 @@ function fetchUrl(url) {
     });
 }
 
-// ── Fetch a wiki page by title via Fandom API ─────────────
-async function fetchWikiPage(title) {
+// ── Fetch a wiki page via API (good for simple pages) ─────
+async function fetchWikiPageAPI(title) {
     const apiUrl = `${WIKI_BASE}/api.php?action=query&titles=${encodeURIComponent(title)}&prop=revisions&rvprop=content&format=json&rvslots=main`;
     const data = await fetchUrl(apiUrl);
     if (!data) return null;
-
     try {
         const json = JSON.parse(data);
         const pages = json.query?.pages;
         if (!pages) return null;
         const page = Object.values(pages)[0];
         if (page.missing !== undefined) return null;
-        const content = page.revisions?.[0]?.slots?.main?.['*'] 
+        const content = page.revisions?.[0]?.slots?.main?.['*']
                      || page.revisions?.[0]?.['*'];
         if (!content) return null;
+        // Check if page has complex tables — if so return null to trigger HTML fallback
+        if ((content.match(/\{\|/g) || []).length > 1) return null;
         return content
-            .replace(/{{[^}]*}}/g, '')
+            .replace(/\{\{[^}]*\}\}/g, '')
             .replace(/\[\[([^\]|]+\|)?([^\]]+)\]\]/g, '$2')
             .replace(/==+([^=]+)==+/g, '\n$1:\n')
             .replace(/\n{3,}/g, '\n\n')
@@ -93,6 +94,24 @@ async function fetchWikiPage(title) {
     } catch {
         return null;
     }
+}
+
+// ── Fetch a wiki page via HTML (good for complex table pages) ──
+async function fetchWikiPageHTML(title) {
+    const pageUrl = `${WIKI_BASE}/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`;
+    const html = await fetchUrl(pageUrl);
+    if (!html) return null;
+    if (html.includes("doesn't seem to have a page") || html.includes('There is currently no text')) return null;
+    // Check the page actually has content
+    if (html.length < 200) return null;
+    return html.slice(0, 4000);
+}
+
+// ── Try API first, fallback to HTML if tables are complex ──
+async function fetchWikiPage(title) {
+    const apiResult = await fetchWikiPageAPI(title);
+    if (apiResult) return apiResult;
+    return await fetchWikiPageHTML(title);
 }
 
 // ── Common words to skip when searching wiki ─────────────

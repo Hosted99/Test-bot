@@ -16,6 +16,7 @@ Settings → Advanced → Developer Mode → right-click channel/role → **Copy
 !setconfig admin_log_channel        <id>  ← channel for mod logs + crew approvals
 !setconfig welcome_channel          <id>  ← channel for new members
 !setconfig belly_rush_channel       <id>  ← channel for the Belly Rush panel
+!setconfig crew_approval_channel    <id>  ← channel for permanent crew approvals (optional)
 !setconfig belly_rush_roles_channel <id>  ← channel for !want commands
 !setconfig reminders_channel        <id>  ← channel for reminders
 !setconfig repair_channel           <id>  ← channel for repair-ship commands
@@ -136,7 +137,7 @@ Hydra - @Nami @Sanji
         > * Mention @everyone, @here, and All Roles
     > The bot will automatically recognize members with this role as authorized managers for the fleet on a per-server basis!
 
-> 💡 When a user types `!want Sunny`, the bot sends a request to `admin_log_channel` with **✅ Approve** / **❌ Deny** buttons. A Mod or Admin clicks the button and the user gets a DM with the result.
+> 💡 When a user types `!want Sunny`, the bot sends a request to `crew_approval_channel` (or `admin_log_channel` if that isn't set) with **✅ Approve** / **❌ Deny** buttons. A Mod or Admin clicks the button and the user gets a DM with the result.
 ```
 ---
 
@@ -249,10 +250,10 @@ Always on — no setup needed.
 + VirusTotal
 + MetaDefender
 + Jotti's Malware 
-+ Kaspersky Threat Intelligence Portal. 
- > existing database, so brand-new domains it hasn't seen yet may pass. For specific domains you always want
++ Kaspersky Threat Intelligence Portal.
+>  existing database, so brand-new domains it hasn't seen yet may pass. For specific domains you always want
 > blocked, add them to a local denylist.
-> Requires `API_KEY` in `.env` for all APIs (without it, all links pass).
+> Requires `API_KEY` in `.env` for all of APIs (without it, all links pass).
 
 ---
 
@@ -282,6 +283,7 @@ Settings → Advanced → Developer Mode → десен клик на канал
 !setconfig admin_log_channel        <id>  ← канал за модерация логове + crew одобрения
 !setconfig welcome_channel          <id>  ← канал за нови членове
 !setconfig belly_rush_channel       <id>  ← канал за Belly Rush панела
+!setconfig crew_approval_channel    <id>  ← канал за одобрения на постоянен екипаж (опционален)
 !setconfig belly_rush_roles_channel <id>  ← канал за !want команди
 !setconfig reminders_channel        <id>  ← канал за напомняния
 !setconfig repair_channel           <id>  ← канал за repair-ship команди
@@ -401,7 +403,7 @@ Hydra - @Nami @Sanji
         > * С позовавания @EVERYONE, @HERE и Всички роли.
     > Ботът автоматично ще разпознае притежателите на тази роля като оторизирани лица за управление на флота per-сървър!
 
-> 💡 Когато потребител напише `!want Sunny`, ботът изпраща заявка в `admin_log_channel` с бутони **✅ Approve** / **❌ Deny**. Мод или Админ натиска бутон и потребителят получава ЛС с резултата.
+> 💡 Когато потребител напише `!want Sunny`, ботът изпраща заявка в `crew_approval_channel` (или в `admin_log_channel`, ако той не е зададен) с бутони **✅ Approve** / **❌ Deny**. Мод или Админ натиска бутон и потребителят получава ЛС с резултата.
 ```
 ---
 

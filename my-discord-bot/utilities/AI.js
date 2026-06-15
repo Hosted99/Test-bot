@@ -73,6 +73,7 @@ function fetchUrl(url) {
 async function fetchWikiPageAPI(title) {
     const apiUrl = `${WIKI_BASE}/api.php?action=query&titles=${encodeURIComponent(title)}&prop=revisions&rvprop=content&format=json&rvslots=main`;
     const data = await fetchUrl(apiUrl);
+    console.log('[API RAW]', title, '->', data ? data.slice(0, 300) : 'NULL');
     if (!data) return null;
     try {
         const json = JSON.parse(data);
@@ -82,6 +83,7 @@ async function fetchWikiPageAPI(title) {
         if (page.missing !== undefined) return null;
         const content = page.revisions?.[0]?.slots?.main?.['*']
                      || page.revisions?.[0]?.['*'];
+        console.log('[API CONTENT]', title, '->', content ? content.slice(0, 100) : 'NULL');
         if (!content) return null;
         return content
             .replace(/\{\{[^}]*\}\}/g, '')

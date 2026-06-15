@@ -71,7 +71,7 @@ function fetchUrl(url) {
 
 // ── Fetch a wiki page via API (good for simple pages) ─────
 async function fetchWikiPageAPI(title) {
-    const apiUrl = `${WIKI_BASE}/api.php?action=query&titles=${encodeURIComponent(title)}&prop=revisions&rvprop=content&format=json&rvslots=main`;
+    const apiUrl = `${WIKI_BASE}/api.php?action=query&titles=${encodeURIComponent(title)}&prop=revisions&rvprop=content&format=json&rvslots=main&redirects=1`;
     const data = await fetchUrl(apiUrl);
     console.log('[API RAW]', title, '->', data ? data.slice(0, 300) : 'NULL');
     if (!data) return null;

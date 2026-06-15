@@ -39,7 +39,7 @@ Laughter rules — use sparingly, only when it truly fits the moment:
 Do NOT start every message with a laugh.
 
 You CAN and SHOULD share links, URLs, and resources when asked. Never refuse to send a link.
-When given wiki content about a hero or fruit build, focus ONLY on what the user asked. If the user asks about Awakening, ignore the base stats and explain the Awakening details provided in the context!`;
+When given wiki content about a hero or fruit build, focus ONLY on what the user asked. If the user asks about Awakening or a specific skill, ignore the base stats and look closely at the text formatted with "|" which represents table rows with specific levels and percentages!`;
 
 // ── Fetch a URL and return plain text (SMART COLD EXTRACTION) ──────
 function fetchUrl(url) {
@@ -56,17 +56,17 @@ function fetchUrl(url) {
                     return resolve(data.trim());
                 }
 
-                // Изчистване на HTML
+                // ПОПРАВКА ЗА ТАБЛИЦИ: Форматираме структурата на уики таблиците преди чистенето
                 let text = data
                     .replace(/<script[\s\S]*?<\/script>/gi, '')
-                    .replace(/<style[\s\S]*?<\/style>/gi, '') // Поправката на Claude
-                    .replace(/<\/td>/gi, ' | ')          
-                    .replace(/<\/tr>/gi, '\n')           
-                    .replace(/<[^>]+>/g, ' ')            
+                    .replace(/<style[\s\S]*?<\/style>/gi, '')
+                    .replace(/<\/th>/gi, ' | ') // Слагаме разделител за заглавията на таблицата
+                    .replace(/<\/td>/gi, ' | ') // Слагаме разделител за всяка клетка с проценти
+                    .replace(/<\/tr>/gi, '\n')  // Всеки ред от таблицата отива на нов ред
+                    .replace(/<[^>]+>/g, ' ')   // Сега вече чистим останалите HTML тагове безопасно
                     .replace(/[ \t]+/g, ' ')             
                     .trim();
 
-                // Връщаме целия пречистен текст. Филтрирането вече става динамично долу!
                 resolve(text);
             });
         });
@@ -95,7 +95,7 @@ async function fetchWikiPageAPI(title) {
         } else if (rev?.['*']) {
             content = rev['*'];
         } else if (rev?.slots?.main?.content) {
-            content = rev.slots.main.content; // Поправката на Claude
+            content = rev.slots.main.content;
         }
 
         if (!content || typeof content !== 'string') return null;
@@ -133,7 +133,7 @@ const SKIP_WORDS = new Set([
     'his', 'her', 'with', 'use', 'good', 'great', 'about', 'info',
     'recommend', 'help', 'please', 'hey', 'hi', 'hello', 'jarvis',
     'equipment', 'team', 'pvp', 'pve', 'vs', 'devil', 'awakening',
-    'should', 'i', 'do', 'need', 'want', 'get', 'have', 'are', 'be', 'awaken', 'awakened'
+    'should', 'i', 'do', 'need', 'want', 'get', 'have', 'are', 'be', 'awaken', 'awakened', 'skills', 'skill'
 ]);
 
 function extractPotentialHeroes(text) {
@@ -225,25 +225,29 @@ async function handleAIMention(msg, botClient) {
     if (fullWikiText) {
         let processedContext = "";
         const lowerPrompt = prompt.toLowerCase();
+        const lowerWikiText = fullWikiText.toLowerCase(); // 🔥 ИЗЦЯЛО В МАЛКИ БУКВИ ЗА ТЪРСЕНЕТО
 
-        // 🔥 УМЕН ФИЛТЪР: Ако играчът пита изрично за АУЕЙКЪН / ПРОБУЖДАНЕ
         if (lowerPrompt.includes("awaken") || lowerPrompt.includes("awakening")) {
-            const awakeIndex = fullWikiText.toLowerCase().indexOf("awakening");
-            if (awakeIndex !== -1) {
-                // Взимаме голямо парче от 2500 символа САМО от Awakening секцията надолу
-                processedContext = `=== ULTRA FOCUS: AWAKENING INFO FOR ${foundTitle} ===\n` + fullWikiText.slice(awakeIndex, awakeIndex + 2500);
+            const skillIndex = lowerWikiText.indexOf("awaken skill");
+            const awakeIndex = lowerWikiText.indexOf("awakening");
+            
+            // Проверяваме къде се намира маркерът (независимо от главни/малки букви в сайта)
+            let targetIndex = skillIndex !== -1 ? skillIndex : awakeIndex;
+
+            if (targetIndex !== -1) {
+                // Изрязваме ОРИГИНАЛНИЯ текст (с оригиналните му главни букви), за да го подадем на AI-то подреден
+                processedContext = `=== ULTRA FOCUS: AWAKENING SKILL INFO FOR ${foundTitle} ===\n` + fullWikiText.slice(targetIndex, targetIndex + 3000);
             } else {
-                processedContext = fullWikiText.slice(0, 2000); // Бекъп ако няма думата
+                processedContext = fullWikiText.slice(0, 2000);
             }
         } else {
-            // Стандартно сглобяване (ако пита общо за плода или героя)
             let compressedText = "=== OVERVIEW ===\n" + fullWikiText.slice(0, 1200) + "\n\n";
-            const keyWords = ["awakening", "seals", "haki", "equipment", "build", "best team"];
+            const keyWords = ["awakening", "awaken skill", "seals", "haki", "equipment", "build", "best team"];
             
             keyWords.forEach(word => {
-                let index = fullWikiText.toLowerCase().indexOf(word);
+                let index = lowerWikiText.indexOf(word);
                 if (index !== -1) {
-                    compressedText += `=== SECTION: ${word.toUpperCase()} ===\n...${fullWikiText.slice(index, index + 800)}...\n\n`;
+                    compressedText += `=== SECTION: ${word.toUpperCase()} ===\n...${fullWikiText.slice(index, index + 1000)}...\n\n`;
                 }
             });
             processedContext = compressedText;

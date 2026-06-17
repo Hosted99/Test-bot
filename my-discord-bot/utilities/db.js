@@ -35,8 +35,15 @@ const PING_EVERY_MS  = 60 * 1000;       // проверявай на всяка 
 // Пазим кратка история (последните 15 будения) с: кога, от какъв файл/функция,
 // и каква заявка точно — за да можеш да го видиш в Discord.
 
-const wakeupHistory = [];          // [{ time, query, source }]
+const wakeupHistory = [];          // [{ time, query, source, guildId, guildName }]
 const MAX_WAKEUP_HISTORY = 15;
+
+// Discord client се подава отвън (от main.js), за да превеждаме guild_id → име на сървъра
+// без circular require между db.js и main.js.
+let discordClient = null;
+function setDiscordClient(client) {
+  discordClient = client;
+}
 
 function getCallerInfo() {
   // Взимаме stack trace и търсим първия ред извън db.js, за да разберем
@@ -51,6 +58,23 @@ function getCallerInfo() {
   return "unknown source";
 }
 
+// Discord guild ID-та са числови низове с 17-19 цифри. Търсим такъв сред
+// параметрите на заявката, за да познаем кой сървър я е причинил.
+function extractGuildInfo(queryParams) {
+  if (!Array.isArray(queryParams)) return { guildId: null, guildName: null };
+  for (const param of queryParams) {
+    if (typeof param === "string" && /^\d{17,19}$/.test(param)) {
+      let guildName = null;
+      if (discordClient) {
+        const guild = discordClient.guilds.cache.get(param);
+        if (guild) guildName = guild.name;
+      }
+      return { guildId: param, guildName };
+    }
+  }
+  return { guildId: null, guildName: null };
+}
+
 const originalQuery = pool.query.bind(pool);
 pool.query = (...args) => {
   const now = Date.now();
@@ -59,14 +83,18 @@ pool.query = (...args) => {
   if (wasAsleep) {
     const queryText = typeof args[0] === "string" ? args[0].slice(0, 200) : "[non-string query]";
     const callerInfo = getCallerInfo();
+    const { guildId, guildName } = extractGuildInfo(args[1]);
+    const guildLabel = guildName ? `${guildName} (${guildId})` : (guildId || "неизвестен сървър");
 
     // Автоматичен лог в Railway — появява се сам, без нужда от команда
-    console.log(`⚡ [NEON WAKE-UP] ${new Date(now).toLocaleString('bg-BG', { timeZone: 'Europe/Sofia' })} | Източник: ${callerInfo} | Заявка: ${queryText}`);
+    console.log(`⚡ [NEON WAKE-UP] ${new Date(now).toLocaleString('bg-BG', { timeZone: 'Europe/Sofia' })} | Сървър: ${guildLabel} | Източник: ${callerInfo} | Заявка: ${queryText}`);
 
     wakeupHistory.unshift({
       time: now,
       query: queryText,
       source: callerInfo,
+      guildId,
+      guildName,
     });
     if (wakeupHistory.length > MAX_WAKEUP_HISTORY) wakeupHistory.pop();
   }
@@ -261,4 +289,4 @@ async function initDB() {
   }
 }
 
-module.exports = { pool, initDB, getLastWakeup, getWakeupHistory };
+module.exports = { pool, initDB, getLastWakeup, getWakeupHistory, setDiscordClient };

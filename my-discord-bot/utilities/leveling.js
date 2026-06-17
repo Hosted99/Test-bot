@@ -6,20 +6,6 @@ const xpCache = new Map();
 const messageTracker = new Map();
 const warnTracker = new Map();
 
-// ✅ Чистене на анти-спам тракерите на всеки час, за да не растат вечно в паметта.
-// Тези Map-ове се ползват само за моментен анти-спам прозорец (10 сек), затова
-// записи, неизползвани от час, са безопасни за изтриване.
-setInterval(() => {
-    const now = Date.now();
-    const ONE_HOUR = 60 * 60 * 1000;
-    for (const [id, t] of messageTracker) {
-        if (now - (t.lastReset || 0) > ONE_HOUR) messageTracker.delete(id);
-    }
-    for (const [id, w] of warnTracker) {
-        if (now - (w.lastWarnTime || 0) > ONE_HOUR) warnTracker.delete(id);
-    }
-}, 60 * 60 * 1000);
-
 function createProgressBar(current, total, size = 10) {
     const progress = Math.min(size, Math.floor((current / total) * size));
     const emptyProgress = size - progress;
@@ -367,7 +353,8 @@ if (message.content.toLowerCase().startsWith('!rank')) {
     // АВТОМАТИЧНА СИНХРОНИЗАЦИЯ
     cron.schedule('0 */2 * * *', async () => {
         try {
-            let count = 0;
+            const countPerGuild = {}; // gId -> брой обновени профили
+
             for (const [key, data] of xpCache.entries()) {
                 if (data.needsUpdate) {
                     const [gId, uId] = key.split(':');
@@ -375,8 +362,22 @@ if (message.content.toLowerCase().startsWith('!rank')) {
                     if (guild) data.guildName = guild.name;
                     await saveToDatabase(pool, gId, uId, data);
                     data.needsUpdate = false;
-                    count++;
+                    countPerGuild[gId] = (countPerGuild[gId] || 0) + 1;
                 }
+            }
+
+            // Изпращаме лог само в сървърите, в които реално е имало обновяване
+            for (const gId of Object.keys(countPerGuild)) {
+                const guild = client.guilds.cache.get(gId);
+                if (!guild) continue;
+                const logChannel = await getChannel(guild, 'log_channel');
+                if (!logChannel) continue;
+                const syncEmbed = new EmbedBuilder()
+                    .setTitle('♻️ Automatic Sync Executed')
+                    .setDescription(`Scheduled sync (every 2 hours) ran successfully.\nUpdated **${countPerGuild[gId]}** pirate profiles.`)
+                    .setColor('#2ecc71')
+                    .setTimestamp();
+                logChannel.send({ embeds: [syncEmbed] }).catch(() => {});
             }
         } catch (e) { console.error(e); }
     }, { timezone: "Europe/London" });

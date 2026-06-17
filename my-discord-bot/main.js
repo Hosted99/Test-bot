@@ -4,7 +4,7 @@ const path = require('path');
 const cron = require('node-cron');
 const https = require('https'); // Заявки към VirusTotal API
 const shipSystem = require('./utilities/ship.js');
-const { pool, initDB, getLastWakeup, getWakeupHistory } = require("./utilities/db");
+const { pool, initDB, getLastWakeup, getWakeupHistory, setDiscordClient } = require("./utilities/db");
 const { initGuildConfigTable, getConfig, setConfig, getAllConfig, getChannel, getRole, preloadAllConfigs } = require("./utilities/guildConfig");
 
 const startBirthdayTimer = require('./utilities/bday.js');
@@ -101,6 +101,9 @@ const client = new Client({
         GatewayIntentBits.GuildModeration
     ]
 });
+
+// Подаваме референция към клиента в db.js, за да може да превежда guild_id → име на сървъра в логовете
+setDiscordClient(client);
 
 // Създаване на елементарен HTTP сървър за мониторинг (напр. за платформи като Render)
 const http = require('http');
@@ -205,12 +208,15 @@ client.on("messageCreate", async (msg) => {
 
         const historyText = history.slice(0, 5).map((w, i) => {
             const time = new Date(w.time).toLocaleString('bg-BG', { timeZone: 'Europe/Sofia' });
-            return `**${i + 1}.** \`${time}\`\n└ ${w.source}\n└ \`${w.query}\``;
+            const guildLabel = w.guildName ? `${w.guildName} (${w.guildId})` : (w.guildId || "неизвестен сървър");
+            return `**${i + 1}.** \`${time}\`\n└ Сървър: **${guildLabel}**\n└ ${w.source}\n└ \`${w.query}\``;
         }).join('\n\n');
+
+        const lastGuildLabel = last.guildName ? `${last.guildName} (${last.guildId})` : (last.guildId || "неизвестен сървър");
 
         const embed = new EmbedBuilder()
             .setTitle("⚡ Neon Wake-up Status")
-            .setDescription(`**Последно събуждане:**\n\`${new Date(last.time).toLocaleString('bg-BG', { timeZone: 'Europe/Sofia' })}\`\n└ Източник: ${last.source}\n└ Заявка: \`${last.query}\``)
+            .setDescription(`**Последно събуждане:**\n\`${new Date(last.time).toLocaleString('bg-BG', { timeZone: 'Europe/Sofia' })}\`\n└ Сървър: **${lastGuildLabel}**\n└ Източник: ${last.source}\n└ Заявка: \`${last.query}\``)
             .addFields({ name: "📜 Последни 5 събуждания", value: historyText || "Няма данни" })
             .setColor("#f39c12")
             .setTimestamp();

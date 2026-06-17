@@ -1,10 +1,10 @@
 const Groq = require("groq-sdk");
-const { Client, GatewayIntentBits, EmbedBuilder, Events, AuditLogEvent, Partials } = require("discord.js");
+const { Client, GatewayIntentBits, EmbedBuilder, Events, AuditLogEvent } = require("discord.js");
 const path = require('path'); 
 const cron = require('node-cron');
 const https = require('https'); // Заявки към VirusTotal API
 const shipSystem = require('./utilities/ship.js');
-const { pool, initDB } = require("./utilities/db");
+const { pool, initDB, getLastWakeup, getWakeupHistory } = require("./utilities/db");
 const { initGuildConfigTable, getConfig, setConfig, getAllConfig, getChannel, getRole, preloadAllConfigs } = require("./utilities/guildConfig");
 
 const startBirthdayTimer = require('./utilities/bday.js');
@@ -15,7 +15,7 @@ const { handleAIMention } = require("./utilities/AI");
 const { handleSpecialChannels } = require("./utilities/specialChannels");
 const { handleNewMember, handleRoleCommands } = require("./utilities/roleHandler");
 const { sendBotManual } = require("./utilities/infoHandler");
-const { logDeletedMessage, logBulkDelete, resolveBulkExecutor } = require("./utilities/logger");
+const { logDeletedMessage } = require("./utilities/logger");
 const { initTranslateSystem } = require('./utilities/translate');
 const memeSystem = require('./utilities/meme.js');
 
@@ -99,9 +99,7 @@ const client = new Client({
         GatewayIntentBits.GuildMembers,
         GatewayIntentBits.GuildMessageReactions,
         GatewayIntentBits.GuildModeration
-    ],
-    // ✅ Без това флаг-преводът и mania реакциите НЕ хващат на по-стари (некеширани) съобщения
-    partials: [Partials.Message, Partials.Reaction, Partials.User]
+    ]
 });
 
 // Създаване на елементарен HTTP сървър за мониторинг (напр. за платформи като Render)
@@ -175,10 +173,8 @@ client.on("messageDelete", async (message) => {
 });
 
 // Логване при масово изтриване на съобщения
-client.on("messageDeleteBulk", async (messages, channel) => {
-    if (!channel?.guild) return;
-    const executor = await resolveBulkExecutor(channel.guild);
-    await logBulkDelete(messages, channel, executor);
+client.on("messageDeleteBulk", async (messages) => {
+    console.log(`[Log] Bulk delete: ${messages.size} messages`);
 });
 
 // Събитие при влизане на нов потребител в сървъра
@@ -189,6 +185,37 @@ client.on("guildMemberAdd", async (member) => {
 
 // Основно събитие за обработка на текстови съобщения
 client.on("messageCreate", async (msg) => {
+
+    // КОМАНДА !neon-status — показва какво е събудило Neon последно
+    if (msg.content.toLowerCase() === '!neon-status') {
+        if (!msg.member.permissions.has('Administrator')) {
+            return msg.reply("❌ Само администратори.").then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
+        }
+        const last = getLastWakeup();
+        const history = getWakeupHistory();
+
+        if (!last) {
+            const embed = new EmbedBuilder()
+                .setTitle("🌙 Neon Wake-up Status")
+                .setDescription("Базата не е заспивала още (или ботът е рестартиран наскоро).")
+                .setColor("#3498db")
+                .setTimestamp();
+            return msg.reply({ embeds: [embed] });
+        }
+
+        const historyText = history.slice(0, 5).map((w, i) => {
+            const time = new Date(w.time).toLocaleString('bg-BG', { timeZone: 'Europe/Sofia' });
+            return `**${i + 1}.** \`${time}\`\n└ ${w.source}\n└ \`${w.query}\``;
+        }).join('\n\n');
+
+        const embed = new EmbedBuilder()
+            .setTitle("⚡ Neon Wake-up Status")
+            .setDescription(`**Последно събуждане:**\n\`${new Date(last.time).toLocaleString('bg-BG', { timeZone: 'Europe/Sofia' })}\`\n└ Източник: ${last.source}\n└ Заявка: \`${last.query}\``)
+            .addFields({ name: "📜 Последни 5 събуждания", value: historyText || "Няма данни" })
+            .setColor("#f39c12")
+            .setTimestamp();
+        return msg.reply({ embeds: [embed] });
+    }
 
     if (msg.guild) {
         const restrictedChannelId = await getConfig(msg.guild.id, 'restricted_channel');
@@ -347,7 +374,6 @@ client.on("messageCreate", async (msg) => {
                 "`admin_log_channel` — channel for moderation logs\n" +
                 "`welcome_channel` — channel for new members\n" +
                 "`belly_rush_channel` — channel for Belly Rush panels\n" +
-                "`crew_approval_channel` — channel for permanent crew approval requests (optional)\n" +
                 "`reminders_channel` — channel for reminders\n" +
                 "`repair_channel` — channel for ship-repairs\n" +
                 "`translator_channel` — channel for AI translation\n" +
@@ -389,12 +415,12 @@ client.on("messageCreate", async (msg) => {
         if (cmd === "!translate-enable") {
             const inputPassword = args[0];
             const storedPassword = process.env.TRANSLATE_PASSWORD;
-            // ✅ Не логваме пароли в конзолата/логовете на хостинга
+            console.log(`[Translate] inputPassword: "${inputPassword}", storedPassword: "${storedPassword}", match: ${inputPassword === storedPassword}`);
             if (!storedPassword) {
                 return msg.reply('❌ TRANSLATE_PASSWORD is not set in .env!');
             }
             if (inputPassword !== storedPassword) {
-                return msg.reply(`❌ Wrong password!`);
+                return msg.reply(`❌ Wrong password! Got: "${inputPassword}"`);
             }
             await setConfig(msg.guild.id, 'flag_translate_enabled', 'true', msg.guild.name);
             return msg.reply('✅ **Flag translation activated!** React with a flag emoji to translate any message.');
@@ -483,7 +509,6 @@ client.on("messageCreate", async (msg) => {
                 { key: "admin_log_channel",         desc: "Moderation logs",            type: "channel" },
                 { key: "welcome_channel",           desc: "New members chat",           type: "channel" },
                 { key: "belly_rush_channel",        desc: "Belly Rush panel",            type: "channel" },
-                { key: "crew_approval_channel",     desc: "Permanent crew approvals",    type: "channel", optional: true },
                 { key: "belly_rush_roles_channel",  desc: "!want commands",               type: "channel" },
                 { key: "reminders_channel",         desc: "Reminders notifications",     type: "channel" },
                 { key: "repair_channel",            desc: "Repair-ship deck",            type: "channel" },

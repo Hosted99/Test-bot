@@ -22,19 +22,7 @@ const { getConfig, setConfig } = require("./guildConfig");
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 const conversationMemory = new Map();
-const memoryLastActive = new Map(); // memKey -> timestamp на последна употреба
 const MAX_HISTORY = 4; // Оптимална памет за 50 човека
-
-// ✅ Чисти разговорната памет за хора, неактивни от 6 часа, за да не расте вечно.
-setInterval(() => {
-    const cutoff = Date.now() - 6 * 60 * 60 * 1000;
-    for (const [key, ts] of memoryLastActive) {
-        if (ts < cutoff) {
-            conversationMemory.delete(key);
-            memoryLastActive.delete(key);
-        }
-    }
-}, 60 * 60 * 1000);
 
 const WIKI_BASE = "https://opking-of-sailing.fandom.com";
 
@@ -206,6 +194,9 @@ async function handleAIMention(msg, botClient) {
 
     const aiEnabled = await getConfig(msg.guild.id, 'ai_enabled');
     if (aiEnabled !== 'true') return false;
+
+    // Игнорираме @everyone и @here — те НЕ са директно споменаване на бота
+    if (msg.mentions.everyone) return false;
     if (!msg.mentions.has(botClient.user)) return false;
 
     const userText = msg.content.replace(/<@!?\d+>/g, '').trim();
@@ -213,7 +204,6 @@ async function handleAIMention(msg, botClient) {
 
     const memKey = `${msg.guild.id}-${msg.author.id}`;
     if (!conversationMemory.has(memKey)) conversationMemory.set(memKey, []);
-    memoryLastActive.set(memKey, Date.now()); // ✅ отбелязваме активност за чистенето
     const history = conversationMemory.get(memKey);
 
     await msg.channel.sendTyping().catch(() => {});

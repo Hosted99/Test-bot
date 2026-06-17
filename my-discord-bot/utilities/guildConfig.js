@@ -49,7 +49,8 @@ async function initGuildConfigTable() {
  */
 async function getConfig(guildId, key) {
     // Check cache first / Проверка в кеша
-    if (configCache.has(guildId) && configCache.get(guildId)[key] !== undefined) {
+    // hasOwnProperty за да различим "ключът липсва от кеша" от "ключът е изрично null"
+    if (configCache.has(guildId) && Object.prototype.hasOwnProperty.call(configCache.get(guildId), key)) {
         return configCache.get(guildId)[key];
     }
 
@@ -120,7 +121,10 @@ async function setConfig(guildId, key, value, guildName = 'unknown') {
  */
 async function deleteConfig(guildId, key) {
     await pool.query('DELETE FROM guild_config WHERE guild_id = $1 AND key = $2', [guildId, key]);
-    if (configCache.has(guildId)) delete configCache.get(guildId)[key];
+    // Слагаме null вместо да изтриваме ключа — иначе следващото getConfig()
+    // пада до базата отново само за да открие, че липсва.
+    if (!configCache.has(guildId)) configCache.set(guildId, {});
+    configCache.get(guildId)[key] = null;
 }
 
 /**

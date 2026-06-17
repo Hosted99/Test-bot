@@ -27,27 +27,63 @@ let lastActivity = 0;
 const WARM_WINDOW_MS = 4 * 60 * 1000;   // дръж топло 4 мин след последна реална заявка
 const PING_EVERY_MS  = 60 * 1000;       // проверявай на всяка минута
 
-const originalQuery = pool.query.bind(pool);
-pool.query = async (...args) => {
-  const now = Date.now();
-  // Ако от последната активност е минало повече от warm прозореца,
-  // базата най-вероятно е заспала → това е cold start (събуждане).
-  const probablyAsleep = now - lastActivity > WARM_WINDOW_MS;
-  lastActivity = now;                     // отбелязваме реална активност
+// ─────────────────────────────────────────────────────────────
+// СЛЕДЕНЕ НА "СЪБУЖДАНЕ" — какво точно е разбудило Neon
+// ─────────────────────────────────────────────────────────────
+// Идея: ако базата е била "студена" (по-дълго от WARM_WINDOW_MS без активност)
+// и точно сега пристига нова реална заявка → тази заявка я е събудила.
+// Пазим кратка история (последните 15 будения) с: кога, от какъв файл/функция,
+// и каква заявка точно — за да можеш да го видиш в Discord.
 
-  if (probablyAsleep) {
-    const start = Date.now();
-    try {
-      const result = await originalQuery(...args);
-      console.log(`🌙→☀️ Neon събудена (cold start): ${Date.now() - start}ms`);
-      return result;
-    } catch (err) {
-      console.log(`🌙→❌ Neon събуждане се провали след ${Date.now() - start}ms: ${err.message}`);
-      throw err;
-    }
+const wakeupHistory = [];          // [{ time, query, source }]
+const MAX_WAKEUP_HISTORY = 15;
+
+function getCallerInfo() {
+  // Взимаме stack trace и търсим първия ред извън db.js, за да разберем
+  // кой файл/функция реално е извикал заявката.
+  const stack = new Error().stack || "";
+  const lines = stack.split("\n").slice(1); // ред 0 е "Error"
+  for (const line of lines) {
+    if (line.includes("db.js")) continue; // прескачаме самата обвивка
+    const match = line.match(/\(([^)]+)\)/) || line.match(/at (.+)/);
+    if (match) return match[1].replace(process.cwd(), "").trim();
   }
+  return "unknown source";
+}
+
+const originalQuery = pool.query.bind(pool);
+pool.query = (...args) => {
+  const now = Date.now();
+  const wasAsleep = now - lastActivity > WARM_WINDOW_MS + 30 * 1000; // +30с буфер за безопасност
+
+  if (wasAsleep) {
+    const queryText = typeof args[0] === "string" ? args[0].slice(0, 200) : "[non-string query]";
+    const callerInfo = getCallerInfo();
+
+    // Автоматичен лог в Railway — появява се сам, без нужда от команда
+    console.log(`⚡ [NEON WAKE-UP] ${new Date(now).toLocaleString('bg-BG', { timeZone: 'Europe/Sofia' })} | Източник: ${callerInfo} | Заявка: ${queryText}`);
+
+    wakeupHistory.unshift({
+      time: now,
+      query: queryText,
+      source: callerInfo,
+    });
+    if (wakeupHistory.length > MAX_WAKEUP_HISTORY) wakeupHistory.pop();
+  }
+
+  lastActivity = now;
   return originalQuery(...args);
 };
+
+// Връща последното събуждане (или null, ако няма история все още)
+function getLastWakeup() {
+  return wakeupHistory[0] || null;
+}
+
+// Връща цялата история на буденията (най-новото first)
+function getWakeupHistory() {
+  return wakeupHistory;
+}
 
 setInterval(() => {
   if (Date.now() - lastActivity < WARM_WINDOW_MS) {
@@ -225,4 +261,4 @@ async function initDB() {
   }
 }
 
-module.exports = { pool, initDB };
+module.exports = { pool, initDB, getLastWakeup, getWakeupHistory };

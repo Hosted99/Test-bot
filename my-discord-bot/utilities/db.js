@@ -60,19 +60,27 @@ function getCallerInfo() {
 
 // Discord guild ID-та са числови низове с 17-19 цифри. Търсим такъв сред
 // параметрите на заявката, за да познаем кой сървър я е причинил.
+// Допълнително: ако заявка е към guild_config, вторият (нечислов) параметър
+// обикновено е "key" — настройката, която е питана (напр. log_channel, ai_enabled).
 function extractGuildInfo(queryParams) {
-  if (!Array.isArray(queryParams)) return { guildId: null, guildName: null };
+  if (!Array.isArray(queryParams)) return { guildId: null, guildName: null, key: null };
+  let guildId = null;
+  let guildName = null;
+  let key = null;
   for (const param of queryParams) {
     if (typeof param === "string" && /^\d{17,19}$/.test(param)) {
-      let guildName = null;
-      if (discordClient) {
-        const guild = discordClient.guilds.cache.get(param);
-        if (guild) guildName = guild.name;
+      if (!guildId) {
+        guildId = param;
+        if (discordClient) {
+          const guild = discordClient.guilds.cache.get(param);
+          if (guild) guildName = guild.name;
+        }
       }
-      return { guildId: param, guildName };
+    } else if (typeof param === "string" && !key) {
+      key = param; // вероятен "key" параметър (нечислов низ)
     }
   }
-  return { guildId: null, guildName: null };
+  return { guildId, guildName, key };
 }
 
 const originalQuery = pool.query.bind(pool);
@@ -83,11 +91,12 @@ pool.query = (...args) => {
   if (wasAsleep) {
     const queryText = typeof args[0] === "string" ? args[0].slice(0, 200) : "[non-string query]";
     const callerInfo = getCallerInfo();
-    const { guildId, guildName } = extractGuildInfo(args[1]);
+    const { guildId, guildName, key } = extractGuildInfo(args[1]);
     const guildLabel = guildName ? `${guildName} (${guildId})` : (guildId || "неизвестен сървър");
+    const keyLabel = key ? ` | Ключ: ${key}` : "";
 
     // Автоматичен лог в Railway — появява се сам, без нужда от команда
-    console.log(`⚡ [NEON WAKE-UP] ${new Date(now).toLocaleString('bg-BG', { timeZone: 'Europe/Sofia' })} | Сървър: ${guildLabel} | Източник: ${callerInfo} | Заявка: ${queryText}`);
+    console.log(`⚡ [NEON WAKE-UP] ${new Date(now).toLocaleString('bg-BG', { timeZone: 'Europe/Sofia' })} | Сървър: ${guildLabel}${keyLabel} | Източник: ${callerInfo} | Заявка: ${queryText}`);
 
     wakeupHistory.unshift({
       time: now,
@@ -95,6 +104,7 @@ pool.query = (...args) => {
       source: callerInfo,
       guildId,
       guildName,
+      key,
     });
     if (wakeupHistory.length > MAX_WAKEUP_HISTORY) wakeupHistory.pop();
   }

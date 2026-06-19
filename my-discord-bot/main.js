@@ -242,6 +242,8 @@ client.on("messageCreate", async (msg) => {
             const mentionedProtected = PROTECTED_USERS.filter(id => msg.mentions.users.has(id));
             const hasEveryone = msg.mentions.everyone;
 
+            if (isSlashCommand && PROTECTED_USERS.includes(msg.interaction.user.id)) return;
+
             if (isSlashCommand && (mentionedProtected.length > 0 || hasEveryone)) {
                 try {
                     const triggerUser = msg.interaction.user;

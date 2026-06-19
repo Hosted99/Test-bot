@@ -242,7 +242,9 @@ client.on("messageCreate", async (msg) => {
             const isSlashCommand = msg.interaction !== null;
             const isBot = msg.author.bot;
 
-            // Проверяваме само slash команди и съобщения от ботове (не обикновен текст от хора)
+            // Ако е slash команда пусната от защитен потребител — той може да прави каквото иска
+            if (isSlashCommand && PROTECTED_USERS.includes(msg.interaction.user.id)) return;
+
             if (isSlashCommand || isBot) {
                 const fullText = [
                     msg.content || '',

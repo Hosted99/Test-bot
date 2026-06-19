@@ -240,20 +240,35 @@ client.on("messageCreate", async (msg) => {
         if (restrictedChannelId && msg.channel.id === restrictedChannelId) {
             const hasEveryone = msg.mentions.everyone;
 
-            // Проверяваме и в текста И в embeds (някои ботове пишат менцията само в embed)
-            const embedText = msg.embeds.map(e => [
-                e.description || '',
-                ...(e.fields || []).map(f => f.value + ' ' + f.name),
-                e.author?.name || '',
-                e.footer?.text || ''
-            ].join(' ')).join(' ');
-
-            const mentionedProtected = PROTECTED_USERS.filter(id =>
-                msg.mentions.users.has(id) ||
-                embedText.includes(id) ||
-                embedText.includes(`<@${id}>`) ||
-                embedText.includes(`<@!${id}>`)
+            // Взимаме username и displayName на защитените потребители за текстово търсене
+            // (някои ботове като BoobBot пишат "hosted Spanks marika8133" вместо <@ID>)
+            const protectedMembers = await Promise.all(
+                PROTECTED_USERS.map(id => msg.guild.members.fetch(id).catch(() => null))
             );
+
+            // Проверяваме и в текста И в embeds
+            const fullText = [
+                msg.content || '',
+                ...msg.embeds.map(e => [
+                    e.description || '',
+                    ...(e.fields || []).map(f => f.value + ' ' + f.name),
+                    e.author?.name || '',
+                    e.footer?.text || '',
+                    e.title || ''
+                ].join(' '))
+            ].join(' ').toLowerCase();
+
+            const mentionedProtected = PROTECTED_USERS.filter((id, i) => {
+                const member = protectedMembers[i];
+                return (
+                    msg.mentions.users.has(id) ||
+                    fullText.includes(id) ||
+                    fullText.includes(`<@${id}>`) ||
+                    fullText.includes(`<@!${id}>`) ||
+                    (member?.user?.username && fullText.includes(member.user.username.toLowerCase())) ||
+                    (member?.displayName && fullText.includes(member.displayName.toLowerCase()))
+                );
+            });
 
             if (mentionedProtected.length > 0 || hasEveryone) {
                 try {

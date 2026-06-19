@@ -191,8 +191,7 @@ client.on("messageCreate", async (msg) => {
 
     // КОМАНДА !neon-status — показва какво е събудило Neon последно
     if (msg.content.toLowerCase() === '!neon-status') {
-      try {
-        if (!msg.member || !msg.member.permissions.has('Administrator')) {
+        if (!msg.member.permissions.has('Administrator')) {
             return msg.reply("❌ Само администратори.").then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
         }
         const last = getLastWakeup();
@@ -224,10 +223,6 @@ client.on("messageCreate", async (msg) => {
             .setColor("#f39c12")
             .setTimestamp();
         return msg.reply({ embeds: [embed] });
-      } catch (e) {
-        console.error("[neon-status] Грешка:", e);
-        return msg.reply(`⚠️ Грешка при изпълнение на \`!neon-status\`: \`${e.message}\``).catch(() => {});
-      }
     }
 
     if (msg.guild) {
@@ -236,17 +231,15 @@ client.on("messageCreate", async (msg) => {
         const protectedUsersRaw = await getConfig(msg.guild.id, 'protected_users');
         const PROTECTED_USERS = protectedUsersRaw ? protectedUsersRaw.split(',') : [];
 
-        // Защита срещу споменавания на защитени потребители в забранения канал чрез Slash команди
+        // Защита срещу споменавания (Mentions) на администратори в забранени канали чрез Slash команди
         if (restrictedChannelId && msg.channel.id === restrictedChannelId) {
             const isSlashCommand = msg.interaction !== null;
             const mentionedProtected = PROTECTED_USERS.filter(id => msg.mentions.users.has(id));
             const hasEveryone = msg.mentions.everyone;
 
-            if (isSlashCommand && PROTECTED_USERS.includes(msg.interaction.user.id)) return;
-
             if (isSlashCommand && (mentionedProtected.length > 0 || hasEveryone)) {
                 try {
-                    const triggerUser = msg.interaction.user;
+                    const triggerUser = msg.interaction.user; 
                     const targetName = hasEveryone ? "@everyone" : mentionedProtected.map(id => `<@${id}>`).join(", ");
                     await msg.delete().catch(() => {});
 

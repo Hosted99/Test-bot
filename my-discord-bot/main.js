@@ -260,13 +260,19 @@ client.on("messageCreate", async (msg) => {
 
             const mentionedProtected = PROTECTED_USERS.filter((id, i) => {
                 const member = protectedMembers[i];
+                const usernameMatch = member?.user?.username
+                    ? new RegExp(`\\b${member.user.username.toLowerCase()}\\b`).test(fullText)
+                    : false;
+                const displayNameMatch = member?.displayName
+                    ? new RegExp(`\\b${member.displayName.toLowerCase()}\\b`).test(fullText)
+                    : false;
                 return (
                     msg.mentions.users.has(id) ||
                     fullText.includes(id) ||
                     fullText.includes(`<@${id}>`) ||
                     fullText.includes(`<@!${id}>`) ||
-                    (member?.user?.username && fullText.includes(member.user.username.toLowerCase())) ||
-                    (member?.displayName && fullText.includes(member.displayName.toLowerCase()))
+                    usernameMatch ||
+                    displayNameMatch
                 );
             });
 

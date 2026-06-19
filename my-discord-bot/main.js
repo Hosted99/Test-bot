@@ -236,57 +236,34 @@ client.on("messageCreate", async (msg) => {
         const protectedUsersRaw = await getConfig(msg.guild.id, 'protected_users');
         const PROTECTED_USERS = protectedUsersRaw ? protectedUsersRaw.split(',') : [];
 
-        // Защита срещу споменавания на защитени потребители в забранения канал
+        // Защита срещу споменавания на защитени потребители в забранения канал чрез Slash команди
         if (restrictedChannelId && msg.channel.id === restrictedChannelId) {
-            const hasEveryone = msg.mentions.everyone;
             const isSlashCommand = msg.interaction !== null;
-            const isBot = msg.author.bot;
+            const mentionedProtected = PROTECTED_USERS.filter(id => msg.mentions.users.has(id));
+            const hasEveryone = msg.mentions.everyone;
 
-            // Ако е slash команда пусната от защитен потребител — той може да прави каквото иска
-            if (isSlashCommand && PROTECTED_USERS.includes(msg.interaction.user.id)) return;
+            if (isSlashCommand && (mentionedProtected.length > 0 || hasEveryone)) {
+                try {
+                    const triggerUser = msg.interaction.user;
+                    const targetName = hasEveryone ? "@everyone" : mentionedProtected.map(id => `<@${id}>`).join(", ");
+                    await msg.delete().catch(() => {});
 
-            if (isSlashCommand || isBot) {
-                const fullText = [
-                    msg.content || '',
-                    ...msg.embeds.map(e => [
-                        e.description || '',
-                        ...(e.fields || []).map(f => f.value + ' ' + f.name),
-                        e.author?.name || '',
-                        e.footer?.text || '',
-                        e.title || ''
-                    ].join(' '))
-                ].join(' ').toLowerCase();
-
-                const mentionedProtected = PROTECTED_USERS.filter(id =>
-                    msg.mentions.users.has(id) ||
-                    fullText.includes(`<@${id}>`) ||
-                    fullText.includes(`<@!${id}>`) ||
-                    new RegExp(`\\b${id}\\b`).test(fullText)
-                );
-
-                if (mentionedProtected.length > 0 || hasEveryone) {
-                    try {
-                        const triggerUser = msg.interaction?.user || msg.author;
-                        const targetName = hasEveryone ? "@everyone" : mentionedProtected.map(id => `<@${id}>`).join(", ");
-                        await msg.delete().catch(() => {});
-
-                        if (adminLogChannelId) {
-                            const logChannel = msg.guild.channels.cache.get(adminLogChannelId);
-                            if (logChannel) {
-                                const logEmbed = new EmbedBuilder()
-                                    .setColor('#ff9900')
-                                    .setTitle('🛡️ Restricted Mention Blocked')
-                                    .addFields(
-                                        { name: 'User/Bot who triggered:', value: `${triggerUser.tag || triggerUser.username}`, inline: true },
-                                        { name: 'Protected User targeted:', value: targetName, inline: true }
-                                    )
-                                    .setTimestamp();
-                                await logChannel.send({ embeds: [logEmbed] });
-                            }
+                    if (adminLogChannelId) {
+                        const logChannel = msg.guild.channels.cache.get(adminLogChannelId);
+                        if (logChannel) {
+                            const logEmbed = new EmbedBuilder()
+                                .setColor('#ff9900')
+                                .setTitle('🛡️ Restricted Mention Blocked')
+                                .addFields(
+                                    { name: 'User who used command:', value: `${triggerUser.tag}`, inline: true },
+                                    { name: 'Protected User targeted:', value: targetName, inline: true }
+                                )
+                                .setTimestamp();
+                            await logChannel.send({ embeds: [logEmbed] });
                         }
-                        return;
-                    } catch (err) { console.log("Error deleting/logging:", err.message); }
-                }
+                    }
+                    return;
+                } catch (err) { console.log("Error deleting/logging:", err.message); }
             }
         }
     }

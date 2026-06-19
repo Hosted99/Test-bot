@@ -191,7 +191,8 @@ client.on("messageCreate", async (msg) => {
 
     // КОМАНДА !neon-status — показва какво е събудило Neon последно
     if (msg.content.toLowerCase() === '!neon-status') {
-        if (!msg.member.permissions.has('Administrator')) {
+      try {
+        if (!msg.member || !msg.member.permissions.has('Administrator')) {
             return msg.reply("❌ Само администратори.").then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
         }
         const last = getLastWakeup();
@@ -223,6 +224,10 @@ client.on("messageCreate", async (msg) => {
             .setColor("#f39c12")
             .setTimestamp();
         return msg.reply({ embeds: [embed] });
+      } catch (e) {
+        console.error("[neon-status] Грешка:", e);
+        return msg.reply(`⚠️ Грешка при изпълнение на \`!neon-status\`: \`${e.message}\``).catch(() => {});
+      }
     }
 
     if (msg.guild) {
@@ -231,15 +236,30 @@ client.on("messageCreate", async (msg) => {
         const protectedUsersRaw = await getConfig(msg.guild.id, 'protected_users');
         const PROTECTED_USERS = protectedUsersRaw ? protectedUsersRaw.split(',') : [];
 
-        // Защита срещу споменавания (Mentions) на администратори в забранени канали чрез Slash команди
+        // Защита срещу споменавания на защитени потребители в забранения канал
         if (restrictedChannelId && msg.channel.id === restrictedChannelId) {
-            const isSlashCommand = msg.interaction !== null;
-            const mentionedProtected = PROTECTED_USERS.filter(id => msg.mentions.users.has(id));
             const hasEveryone = msg.mentions.everyone;
 
-            if (isSlashCommand && (mentionedProtected.length > 0 || hasEveryone)) {
+            // Проверяваме и в текста И в embeds (някои ботове пишат менцията само в embed)
+            const embedText = msg.embeds.map(e => [
+                e.description || '',
+                ...(e.fields || []).map(f => f.value + ' ' + f.name),
+                e.author?.name || '',
+                e.footer?.text || ''
+            ].join(' ')).join(' ');
+
+            const mentionedProtected = PROTECTED_USERS.filter(id =>
+                msg.mentions.users.has(id) ||
+                embedText.includes(id) ||
+                embedText.includes(`<@${id}>`) ||
+                embedText.includes(`<@!${id}>`)
+            );
+
+            if (mentionedProtected.length > 0 || hasEveryone) {
                 try {
-                    const triggerUser = msg.interaction.user; 
+                    // Ако е slash команда — взимаме triggerUser от interaction
+                    // Ако е отговор на бот (напр. NSFW бот) — показваме автора на съобщението
+                    const triggerUser = msg.interaction?.user || msg.author;
                     const targetName = hasEveryone ? "@everyone" : mentionedProtected.map(id => `<@${id}>`).join(", ");
                     await msg.delete().catch(() => {});
 
@@ -250,7 +270,7 @@ client.on("messageCreate", async (msg) => {
                                 .setColor('#ff9900')
                                 .setTitle('🛡️ Restricted Mention Blocked')
                                 .addFields(
-                                    { name: 'User who used command:', value: `${triggerUser.tag}`, inline: true },
+                                    { name: 'User/Bot who triggered:', value: `${triggerUser.tag || triggerUser.username}`, inline: true },
                                     { name: 'Protected User targeted:', value: targetName, inline: true }
                                 )
                                 .setTimestamp();

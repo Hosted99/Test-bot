@@ -235,11 +235,8 @@ async function handleMessage(message) {
             return message.reply(`❌ Ship not found. Available ships: ${list || 'none'}`);
         }
 
-        // Заявката отива в отделния канал за одобрения (ако е зададен),
-        // иначе резервно в admin_log_channel — така нищо не се чупи за стари сървъри.
-        const approvalId = await getConfig(message.guild.id, 'crew_approval_channel')
-            || await getConfig(message.guild.id, 'admin_log_channel');
-        const adminLog = approvalId ? message.guild.channels.cache.get(approvalId) : null;
+        const adminLogId = await getConfig(message.guild.id, 'admin_log_channel');
+        const adminLog = adminLogId ? message.guild.channels.cache.get(adminLogId) : null;
 
         const requestEmbed = new EmbedBuilder()
             .setTitle('⚓ Permanent Crew Request')
@@ -368,6 +365,12 @@ async function handleMessage(message) {
         const ship = ships.find(s => s.ship_name.toLowerCase() === shipName.toLowerCase());
 
         if (!ship) return message.reply(`❌ Ship **${shipName}** not found.`);
+
+        // Изтриваме стария капитан на ТОЗИ кораб преди да назначим нов
+        await pool.query(
+            'DELETE FROM ship_captains WHERE guild_id = $1 AND ship_key = $2',
+            [message.guild.id, ship.ship_key]
+        );
 
         await pool.query(
             `INSERT INTO ship_captains (guild_id, guild_name, user_id, username, ship_key, ship_name)

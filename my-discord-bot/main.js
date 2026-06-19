@@ -209,16 +209,14 @@ client.on("messageCreate", async (msg) => {
         const historyText = history.slice(0, 5).map((w, i) => {
             const time = new Date(w.time).toLocaleString('bg-BG', { timeZone: 'Europe/Sofia' });
             const guildLabel = w.guildName ? `${w.guildName} (${w.guildId})` : (w.guildId || "неизвестен сървър");
-            const keyLine = w.key ? `\n└ Ключ: \`${w.key}\`` : "";
-            return `**${i + 1}.** \`${time}\`\n└ Сървър: **${guildLabel}**${keyLine}\n└ ${w.source}\n└ \`${w.query}\``;
+            return `**${i + 1}.** \`${time}\`\n└ Сървър: **${guildLabel}**\n└ ${w.source}\n└ \`${w.query}\``;
         }).join('\n\n');
 
         const lastGuildLabel = last.guildName ? `${last.guildName} (${last.guildId})` : (last.guildId || "неизвестен сървър");
-        const lastKeyLine = last.key ? `\n└ Ключ: \`${last.key}\`` : "";
 
         const embed = new EmbedBuilder()
             .setTitle("⚡ Neon Wake-up Status")
-            .setDescription(`**Последно събуждане:**\n\`${new Date(last.time).toLocaleString('bg-BG', { timeZone: 'Europe/Sofia' })}\`\n└ Сървър: **${lastGuildLabel}**${lastKeyLine}\n└ Източник: ${last.source}\n└ Заявка: \`${last.query}\``)
+            .setDescription(`**Последно събуждане:**\n\`${new Date(last.time).toLocaleString('bg-BG', { timeZone: 'Europe/Sofia' })}\`\n└ Сървър: **${lastGuildLabel}**\n└ Източник: ${last.source}\n└ Заявка: \`${last.query}\``)
             .addFields({ name: "📜 Последни 5 събуждания", value: historyText || "Няма данни" })
             .setColor("#f39c12")
             .setTimestamp();

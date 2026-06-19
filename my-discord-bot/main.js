@@ -239,51 +239,52 @@ client.on("messageCreate", async (msg) => {
         // Защита срещу споменавания на защитени потребители в забранения канал
         if (restrictedChannelId && msg.channel.id === restrictedChannelId) {
             const hasEveryone = msg.mentions.everyone;
+            const isSlashCommand = msg.interaction !== null;
+            const isBot = msg.author.bot;
 
-            // Проверяваме и в текста И в embeds
-            const fullText = [
-                msg.content || '',
-                ...msg.embeds.map(e => [
-                    e.description || '',
-                    ...(e.fields || []).map(f => f.value + ' ' + f.name),
-                    e.author?.name || '',
-                    e.footer?.text || '',
-                    e.title || ''
-                ].join(' '))
-            ].join(' ').toLowerCase();
+            // Проверяваме само slash команди и съобщения от ботове (не обикновен текст от хора)
+            if (isSlashCommand || isBot) {
+                const fullText = [
+                    msg.content || '',
+                    ...msg.embeds.map(e => [
+                        e.description || '',
+                        ...(e.fields || []).map(f => f.value + ' ' + f.name),
+                        e.author?.name || '',
+                        e.footer?.text || '',
+                        e.title || ''
+                    ].join(' '))
+                ].join(' ').toLowerCase();
 
-            const mentionedProtected = PROTECTED_USERS.filter(id =>
-                msg.mentions.users.has(id) ||
-                fullText.includes(`<@${id}>`) ||
-                fullText.includes(`<@!${id}>`) ||
-                // Търсим ID-то като самостоятелно число в текста (BoobBot понякога го пише)
-                new RegExp(`\\b${id}\\b`).test(fullText)
-            );
+                const mentionedProtected = PROTECTED_USERS.filter(id =>
+                    msg.mentions.users.has(id) ||
+                    fullText.includes(`<@${id}>`) ||
+                    fullText.includes(`<@!${id}>`) ||
+                    new RegExp(`\\b${id}\\b`).test(fullText)
+                );
 
-            if (mentionedProtected.length > 0 || hasEveryone) {
-                try {
-                    // Ако е slash команда — взимаме triggerUser от interaction
-                    // Ако е отговор на бот (напр. NSFW бот) — показваме автора на съобщението
-                    const triggerUser = msg.interaction?.user || msg.author;
-                    const targetName = hasEveryone ? "@everyone" : mentionedProtected.map(id => `<@${id}>`).join(", ");
-                    await msg.delete().catch(() => {});
+                if (mentionedProtected.length > 0 || hasEveryone) {
+                    try {
+                        const triggerUser = msg.interaction?.user || msg.author;
+                        const targetName = hasEveryone ? "@everyone" : mentionedProtected.map(id => `<@${id}>`).join(", ");
+                        await msg.delete().catch(() => {});
 
-                    if (adminLogChannelId) {
-                        const logChannel = msg.guild.channels.cache.get(adminLogChannelId);
-                        if (logChannel) {
-                            const logEmbed = new EmbedBuilder()
-                                .setColor('#ff9900')
-                                .setTitle('🛡️ Restricted Mention Blocked')
-                                .addFields(
-                                    { name: 'User/Bot who triggered:', value: `${triggerUser.tag || triggerUser.username}`, inline: true },
-                                    { name: 'Protected User targeted:', value: targetName, inline: true }
-                                )
-                                .setTimestamp();
-                            await logChannel.send({ embeds: [logEmbed] });
+                        if (adminLogChannelId) {
+                            const logChannel = msg.guild.channels.cache.get(adminLogChannelId);
+                            if (logChannel) {
+                                const logEmbed = new EmbedBuilder()
+                                    .setColor('#ff9900')
+                                    .setTitle('🛡️ Restricted Mention Blocked')
+                                    .addFields(
+                                        { name: 'User/Bot who triggered:', value: `${triggerUser.tag || triggerUser.username}`, inline: true },
+                                        { name: 'Protected User targeted:', value: targetName, inline: true }
+                                    )
+                                    .setTimestamp();
+                                await logChannel.send({ embeds: [logEmbed] });
+                            }
                         }
-                    }
-                    return;
-                } catch (err) { console.log("Error deleting/logging:", err.message); }
+                        return;
+                    } catch (err) { console.log("Error deleting/logging:", err.message); }
+                }
             }
         }
     }

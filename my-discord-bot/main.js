@@ -240,12 +240,6 @@ client.on("messageCreate", async (msg) => {
         if (restrictedChannelId && msg.channel.id === restrictedChannelId) {
             const hasEveryone = msg.mentions.everyone;
 
-            // Взимаме username и displayName на защитените потребители за текстово търсене
-            // (някои ботове като BoobBot пишат "hosted Spanks marika8133" вместо <@ID>)
-            const protectedMembers = await Promise.all(
-                PROTECTED_USERS.map(id => msg.guild.members.fetch(id).catch(() => null))
-            );
-
             // Проверяваме и в текста И в embeds
             const fullText = [
                 msg.content || '',
@@ -258,23 +252,13 @@ client.on("messageCreate", async (msg) => {
                 ].join(' '))
             ].join(' ').toLowerCase();
 
-            const mentionedProtected = PROTECTED_USERS.filter((id, i) => {
-                const member = protectedMembers[i];
-                const usernameMatch = member?.user?.username
-                    ? new RegExp(`\\b${member.user.username.toLowerCase()}\\b`).test(fullText)
-                    : false;
-                const displayNameMatch = member?.displayName
-                    ? new RegExp(`\\b${member.displayName.toLowerCase()}\\b`).test(fullText)
-                    : false;
-                return (
-                    msg.mentions.users.has(id) ||
-                    fullText.includes(id) ||
-                    fullText.includes(`<@${id}>`) ||
-                    fullText.includes(`<@!${id}>`) ||
-                    usernameMatch ||
-                    displayNameMatch
-                );
-            });
+            const mentionedProtected = PROTECTED_USERS.filter(id =>
+                msg.mentions.users.has(id) ||
+                fullText.includes(`<@${id}>`) ||
+                fullText.includes(`<@!${id}>`) ||
+                // Търсим ID-то като самостоятелно число в текста (BoobBot понякога го пише)
+                new RegExp(`\\b${id}\\b`).test(fullText)
+            );
 
             if (mentionedProtected.length > 0 || hasEveryone) {
                 try {

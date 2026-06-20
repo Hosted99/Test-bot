@@ -162,6 +162,7 @@ async function handleCommands(msg, pool) {
                 { name: "🍎 Devil Fruit", value: hero.devil_fruit || "N/A", inline: false },
                 { name: "🍊 2nd Devil Fruit", value: hero.secondary_fruit || "---", inline: false },
                 { name: "🌊 Fruit Awakenings", value: hero.awakenings || "N/A", inline: false },
+                { name: "✒️ Signature ", value: hero.signature || "N/A", inline: false },
                 { name: "💎 Treasure", value: hero.treasure || "N/A", inline: false }
             );
 

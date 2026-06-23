@@ -59,12 +59,12 @@ function initTranslateSystem(client) {
         setTimeout(() => flagCooldown.delete(cooldownKey), COOLDOWN_MS);
 
         try {
-            // Нов, изключително прецизен промпт за разговорна реч
-            const systemPrompt = `You are a strict, literal chat translator. Your only job is to translate non-English messages into English.
+            // Превежда на езика на флага
+            const systemPrompt = `You are a strict, literal chat translator. Your only job is to translate messages into ${targetLanguage}.
 
 RULES:
-1. Translate the message accurately. Keep all specific names, words, and meaning exactly as they are. Do not substitute names with slang (e.g., keep names instead of changing them to "dude").
-2. If the message is already in English, reply with exactly one word: SKIP
+1. Translate the message accurately into ${targetLanguage}. Keep all specific names, words, and meaning exactly as they are. Do not substitute names with slang.
+2. If the message is already in ${targetLanguage}, reply with exactly one word: SKIP
 3. Output ONLY the raw translation or the word SKIP. No explanations, no quotes.`;
 
             const result = await groq.chat.completions.create({

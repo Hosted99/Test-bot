@@ -684,7 +684,7 @@ client.on("messageCreate", async (msg) => {
                     { role: "system", content: "Analyze language. If the text is English, respond with {\"isEnglish\": true}. If NOT English, translate to English and respond ONLY JSON: {\"isEnglish\": boolean, \"detectedLang\": \"Language Name\", \"translatedText\": \"...\"}" },
                     { role: "user", content: cleanedText }
                 ],
-                model: "meta-llama/llama-4-scout-17b-16e-instruct"
+                model: "meta-llama/llama-4-scout-17b-16e-instruct",
                 response_format: { type: "json_object" }
             });
 

@@ -72,7 +72,7 @@ RULES:
                     { role: "system", content: systemPrompt },
                     { role: "user", content: messageContent }
                 ],
-                model: "meta-llama/llama-4-scout-17b-16e-instruct",
+                model: "openai/gpt-oss-120b",
                 temperature: 0.3, // Ниска температура = по-точен и малко "сух" превод без измислици
                 max_tokens: 400
             });
@@ -134,7 +134,7 @@ CRITICAL RULES:
                     { role: "system", content: systemPrompt },
                     { role: "user", content: cleanText }
                 ],
-                model: "meta-llama/llama-4-scout-17b-16e-instruct",
+                model: "openai/gpt-oss-120b",
                 temperature: 0.0, // ВАЖНО: Пълна нула! Премахва всякакво филмиране и пренаписване от страна на ИИ
                 max_tokens: 150
             });

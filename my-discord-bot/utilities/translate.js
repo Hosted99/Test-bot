@@ -72,7 +72,8 @@ RULES:
                     { role: "system", content: systemPrompt },
                     { role: "user", content: messageContent }
                 ],
-                model: "openai/gpt-oss-120b",
+                model: "qwen/qwen3.6-27b",
+                reasoning_effort: "none", // изключваме reasoning-а - не ни трябва за прост превод
                 temperature: 0.3, // Ниска температура = по-точен и малко "сух" превод без измислици
                 max_tokens: 400
             });
@@ -134,7 +135,8 @@ CRITICAL RULES:
                     { role: "system", content: systemPrompt },
                     { role: "user", content: cleanText }
                 ],
-                model: "openai/gpt-oss-120b",
+                model: "qwen/qwen3.6-27b",
+                reasoning_effort: "none", // изключваме reasoning-а - не ни трябва за прост превод
                 temperature: 0.0, // ВАЖНО: Пълна нула! Премахва всякакво филмиране и пренаписване от страна на ИИ
                 max_tokens: 150
             });

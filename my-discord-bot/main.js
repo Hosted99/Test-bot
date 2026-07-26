@@ -393,6 +393,7 @@ client.on("messageCreate", async (msg) => {
                 "`log_channel` — channel for XP logs\n" +
                 "`stats_channel` — channel for !top leaderboards\n" +
                 "`admin_log_channel` — channel for moderation logs\n" +
+                "`crew_approval_channel` — channel for permanent crew approvals (optional, falls back to admin_log_channel)\n" +
                 "`welcome_channel` — channel for new members\n" +
                 "`belly_rush_channel` — channel for Belly Rush panels\n" +
                 "`reminders_channel` — channel for reminders\n" +
@@ -528,6 +529,7 @@ client.on("messageCreate", async (msg) => {
                 { key: "log_channel",               desc: "XP logs",                   type: "channel" },
                 { key: "stats_channel",             desc: "!top leaderboard",          type: "channel" },
                 { key: "admin_log_channel",         desc: "Moderation logs",            type: "channel" },
+                { key: "crew_approval_channel",     desc: "Permanent crew approvals",   type: "channel" },
                 { key: "welcome_channel",           desc: "New members chat",           type: "channel" },
                 { key: "belly_rush_channel",        desc: "Belly Rush panel",            type: "channel" },
                 { key: "belly_rush_roles_channel",  desc: "!want commands",               type: "channel" },

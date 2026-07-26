@@ -9,6 +9,7 @@
  *   log_channel         — канал за логове
  *   stats_channel       — канал за статистики
  *   admin_log_channel   — канал за admin логове
+ *   crew_approval_channel — канал за одобрение на permanent crew заявки (по избор, ако не е зададен - пада обратно на admin_log_channel)
  *   welcome_channel     — канал за посрещане на нови членове
  *   belly_rush_channel  — канал за Belly Rush
  *   reminders_channel   — канал за напомняния

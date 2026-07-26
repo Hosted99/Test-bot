@@ -235,7 +235,9 @@ async function handleMessage(message) {
             return message.reply(`❌ Ship not found. Available ships: ${list || 'none'}`);
         }
 
-        const adminLogId = await getConfig(message.guild.id, 'admin_log_channel');
+        // Ползваме crew_approval_channel ако е configнат, иначе падаме обратно на admin_log_channel
+        const crewApprovalId = await getConfig(message.guild.id, 'crew_approval_channel');
+        const adminLogId = crewApprovalId || await getConfig(message.guild.id, 'admin_log_channel');
         const adminLog = adminLogId ? message.guild.channels.cache.get(adminLogId) : null;
 
         const requestEmbed = new EmbedBuilder()

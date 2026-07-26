@@ -1,3 +1,4 @@
+//12
 const Groq = require("groq-sdk");
 const { Client, GatewayIntentBits, EmbedBuilder, Events, AuditLogEvent } = require("discord.js");
 const path = require('path'); 

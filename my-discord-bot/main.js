@@ -1,4 +1,3 @@
-//12
 const Groq = require("groq-sdk");
 const { Client, GatewayIntentBits, EmbedBuilder, Events, AuditLogEvent } = require("discord.js");
 const path = require('path'); 
@@ -394,7 +393,6 @@ client.on("messageCreate", async (msg) => {
                 "`log_channel` — channel for XP logs\n" +
                 "`stats_channel` — channel for !top leaderboards\n" +
                 "`admin_log_channel` — channel for moderation logs\n" +
-                "`crew_approval_channel` — channel for permanent crew approvals (optional, falls back to admin_log_channel)\n" +
                 "`welcome_channel` — channel for new members\n" +
                 "`belly_rush_channel` — channel for Belly Rush panels\n" +
                 "`reminders_channel` — channel for reminders\n" +
@@ -415,6 +413,20 @@ client.on("messageCreate", async (msg) => {
             }
             await setConfig(msg.guild.id, key, value, msg.guild.name);
             return msg.reply(`✅ Configuration saved: \`${key}\` = \`${value}\``);
+        }
+
+        if (cmd === "!sendbday") {
+            // ✅ Ръчно изпращане на birthday съобщение веднага (не чака 08:30 cron-а)
+            // Manually send the birthday message right now (doesn't wait for the 08:30 cron)
+            if (!msg.member.permissions.has('Administrator')) {
+                return msg.reply("❌ Only administrators can trigger the birthday message.");
+            }
+            const { sendBirthdayMessage } = require('./utilities/bday.js');
+            const sent = await sendBirthdayMessage(msg.guild);
+            if (!sent) {
+                return msg.reply("❌ `bday_channel` or `bday_user` is not configured. Use `!setconfig bday_channel <channel>` and `!setconfig bday_user <user_id>` first.");
+            }
+            return msg.reply("✅ Birthday message sent!");
         }
 
         if (cmd === "!getconfig") {
@@ -530,7 +542,6 @@ client.on("messageCreate", async (msg) => {
                 { key: "log_channel",               desc: "XP logs",                   type: "channel" },
                 { key: "stats_channel",             desc: "!top leaderboard",          type: "channel" },
                 { key: "admin_log_channel",         desc: "Moderation logs",            type: "channel" },
-                { key: "crew_approval_channel",     desc: "Permanent crew approvals",   type: "channel" },
                 { key: "welcome_channel",           desc: "New members chat",           type: "channel" },
                 { key: "belly_rush_channel",        desc: "Belly Rush panel",            type: "channel" },
                 { key: "belly_rush_roles_channel",  desc: "!want commands",               type: "channel" },

@@ -605,6 +605,7 @@ client.on("messageCreate", async (msg) => {
                 { key: "protected_users",           desc: "Protected users list",        type: "text" },
                 { key: "bday_channel",              desc: "Birthday channel",              type: "channel", optional: true },
                 { key: "bday_user",                 desc: "Birthday tracking user",         type: "text",    optional: true },
+                { key: "blacklist_channel",          desc: "Belly Rush blacklist embed",     type: "channel", optional: true },
             ];
 
             const { EmbedBuilder } = require("discord.js");

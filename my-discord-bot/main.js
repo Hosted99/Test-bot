@@ -424,6 +424,20 @@ client.on("messageCreate", async (msg) => {
             return msg.reply({ embeds: [embed] });
         }
 
+        if (cmd === "!blacklist-refresh") {
+            // ✅ Форсира обновяване на живото embed съобщение в blacklist_channel
+            // Полезно след ръчни промени директно в базата (напр. bulk insert през Neon)
+            if (!msg.member.permissions.has('Administrator')) {
+                return msg.reply("❌ Only administrators can refresh the blacklist.");
+            }
+            const { refreshBlacklistMessage } = require('./utilities/blacklist.js');
+            const result = await refreshBlacklistMessage(msg.guild);
+            if (!result) {
+                return msg.reply("❌ `blacklist_channel` is not configured. Use `!setconfig blacklist_channel <channel>` first.");
+            }
+            return msg.reply("✅ Blacklist embed refreshed.");
+        }
+
         if (cmd === "!blacklist-add") {
             // ✅ Добавя ИМЕ (не Discord потребител) в blacklist-а (само Admin)
             if (!msg.member.permissions.has('Administrator')) {

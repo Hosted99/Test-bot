@@ -70,6 +70,14 @@ const sendBotManual = async (guild) => {
             {
                 name: "🛡️ 13. Security & Logging (Automatic)",
                 value: "• **Link protection** — every link is scanned; malicious/phishing links are deleted and the user warned.\n• **Deleted messages** — logged to the admin log with author, who deleted it, content & attachments.\n• **Bulk deletes** — saved as a `.txt` file with who did it.\n• **Bans & timeouts** — logged with the responsible mod, reason & duration."
+            },
+            {
+                name: "🏴‍☠️ 14. Belly Rush Blacklist",
+                value: "• `!black-list` — View the current blacklist (anyone).\n• `!blacklist-add <name> <reason>` — Add a name *(Admin)*. Use quotes for names with spaces: `!blacklist-add \"Red Hair Shanks\" scammer`\n• `!blacklist-remove <name>` — Remove a name *(Admin)*.\n• Set `blacklist_channel` via `!setconfig` for a live, auto-updating embed."
+            },
+            {
+                name: "🎂 15. Birthday Messages",
+                value: "• `!setconfig bday_channel #channel` / `!setconfig bday_user <id>` — Configure who gets the message *(Admin)*.\n• Sent automatically every day at 08:30 (Sofia time) while `bday_user` is set — remember to update it, it repeats daily!\n• `!sendbday` — Manually send the birthday message right now *(Admin)*."
             }
         )
         .setFooter({ text: "Sailing Kingdom Engine • Automatically updated on startup" })

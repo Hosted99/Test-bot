@@ -61,6 +61,14 @@ async function handleCommands(msg, pool) {
                     value: "• `!want <ship-name>` — Request permanent crew spot (in belly-rush-roles channel)\n• `!setup` — Manually send the Belly Rush panel (Admin)\n• `!ship-add <name> <emoji> @role` — Add a ship (Admin)\n• `!ship-remove <name>` — Remove a ship (Admin)\n• `!ship-list` — View all ships and crews (Admin)\n• `!ship-captain @user <ship>` — Set permanent captain (Admin)\n• `!ship-uncaptain @user` — Remove captain (Admin)"
                 },
                 {
+                    name: "🏴‍☠️ Belly Rush Blacklist",
+                    value: "• `!black-list` — View the blacklist\n• `!blacklist-add <name> <reason>` — Add a name (Admin)\n• `!blacklist-remove <name>` — Remove a name (Admin)"
+                },
+                {
+                    name: "🎂 Birthday",
+                    value: "• `!setconfig bday_channel #channel` / `!setconfig bday_user <id>` — Configure (Admin)\n• Auto-sends daily at 08:30 (Sofia time) while set\n• `!sendbday` — Send it manually right now (Admin)"
+                },
+                {
                     name: "⚙️ Repair Ship",
                     value: "• `repair @ship` — Send a random repair message (in repair channel)\n• `!ship-addrepair <ship> <message>` — Add repair message, use `{user}` for mention (Admin)\n• `!ship-repairs <ship>` — List all repair messages with IDs (Admin)\n• `!ship-removerepair <id>` — Remove a repair message (Admin)"
                 },

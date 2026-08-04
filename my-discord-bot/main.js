@@ -409,10 +409,54 @@ client.on("messageCreate", async (msg) => {
                 "`protected_users` — protected user IDs (id1,id2)\n" +
                 "`bday_channel` — channel for birthday messages\n" +
                 "`bday_user` — user ID for birthday tracking\n" +
+                "`blacklist_channel` — channel for the persistent Belly Rush blacklist embed (optional)\n" +
                 "`mania_main_channel` — main channel for Mania notifications (optional)");
             }
             await setConfig(msg.guild.id, key, value, msg.guild.name);
             return msg.reply(`✅ Configuration saved: \`${key}\` = \`${value}\``);
+        }
+
+        if (cmd === "!black-list" || cmd === "!blacklist") {
+            // ✅ Показва текущия blacklist — вижда се от всеки
+            const { getBlacklist, buildBlacklistEmbed } = require('./utilities/blacklist.js');
+            const rows = await getBlacklist(msg.guild.id);
+            const embed = buildBlacklistEmbed(msg.guild, rows);
+            return msg.reply({ embeds: [embed] });
+        }
+
+        if (cmd === "!blacklist-add") {
+            // ✅ Добавя ИМЕ (не Discord потребител) в blacklist-а (само Admin)
+            if (!msg.member.permissions.has('Administrator')) {
+                return msg.reply("❌ Only administrators can manage the blacklist.");
+            }
+            const { addToBlacklist, refreshBlacklistMessage, parseNameAndReason } = require('./utilities/blacklist.js');
+            const rawText = args.join(' ');
+            const { name, reason } = parseNameAndReason(rawText);
+            if (!name) {
+                return msg.reply('❌ Format: `!blacklist-add <name> <reason>`\nFor names with spaces use quotes: `!blacklist-add "Red Hair Shanks" scammer`');
+            }
+            await addToBlacklist(msg.guild.id, name, reason, msg.author.id);
+            await refreshBlacklistMessage(msg.guild);
+            return msg.reply(`✅ Added **${name}** to the blacklist: \`${reason || 'No reason provided'}\``);
+        }
+
+        if (cmd === "!blacklist-remove") {
+            // ✅ Маха ИМЕ от blacklist-а (само Admin)
+            if (!msg.member.permissions.has('Administrator')) {
+                return msg.reply("❌ Only administrators can manage the blacklist.");
+            }
+            const { removeFromBlacklist, refreshBlacklistMessage, parseNameAndReason } = require('./utilities/blacklist.js');
+            const rawText = args.join(' ');
+            const { name } = parseNameAndReason(rawText);
+            if (!name) {
+                return msg.reply('❌ Format: `!blacklist-remove <name>`\nFor names with spaces use quotes: `!blacklist-remove "Red Hair Shanks"`');
+            }
+            const wasRemoved = await removeFromBlacklist(msg.guild.id, name);
+            if (!wasRemoved) {
+                return msg.reply(`❌ **${name}** is not on the blacklist.`);
+            }
+            await refreshBlacklistMessage(msg.guild);
+            return msg.reply(`✅ Removed **${name}** from the blacklist.`);
         }
 
         if (cmd === "!sendbday") {

@@ -1,5 +1,5 @@
 # 🏴‍☠️ Sailing Kingdom Bot — Наръчник / User Guide
-
+а
 ## 🇬🇧 ENGLISH
 
 ### 🚀 Getting Started — New Server Setup

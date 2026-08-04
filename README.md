@@ -1,4 +1,3 @@
-
 # 🏴‍☠️ Sailing Kingdom Bot — Наръчник / User Guide
 
 ## 🇬🇧 ENGLISH
@@ -34,6 +33,7 @@ Settings → Advanced → Developer Mode → right-click channel/role → **Copy
 !setconfig protected_users     <id1,id2>  ← protected users (IDs separated by ,)
 !setconfig bday_channel             <id>  ← birthday channel (optional)
 !setconfig bday_user                <id>  ← birthday user ID (optional)
+!setconfig blacklist_channel        <id>  ← channel for the live Belly Rush blacklist embed (optional)
 ```
 
 **3. Check what's missing:**
@@ -139,6 +139,33 @@ Hydra - @Nami @Sanji
 
 > 💡 When a user types `!want Sunny`, the bot sends a request to `crew_approval_channel` (or `admin_log_channel` if that isn't set) with **✅ Approve** / **❌ Deny** buttons. A Mod or Admin clicks the button and the user gets a DM with the result.
 ```
+---
+
+### 🏴‍☠️ Belly Rush Blacklist
+
+Names are stored as **plain text**, not Discord users — works even for people not in the server.
+
+```
+!black-list                              ← view the current blacklist (anyone)
+!blacklist-add Luffy123 duplicate account  ← add a name (Admin)
+!blacklist-add "Red Hair Shanks" scammer   ← use quotes for names with spaces (Admin)
+!blacklist-remove Luffy123                 ← remove a name (Admin)
+```
+
+> 💡 If `blacklist_channel` is configured, the bot keeps **one** live embed message there and edits it on every add/remove instead of spamming new posts.
+
+---
+
+### 🎂 Birthday Messages
+
+```
+!setconfig bday_channel <id>   ← channel for the birthday message
+!setconfig bday_user    <id>   ← Discord ID of the person having a birthday
+!sendbday                      ← manually send the message right now (Admin)
+```
+
+> ⚠️ There's no auto-clear — the message is sent **every day at 08:30** (Sofia time) while `bday_user` stays set. Update or overwrite it after the birthday so it doesn't repeat.
+
 ---
 
 ### ⚙️ Repair Ship
@@ -301,6 +328,7 @@ Settings → Advanced → Developer Mode → десен клик на канал
 !setconfig protected_users     <id1,id2>  ← защитени потребители (ID-та с ,)
 !setconfig bday_channel             <id>  ← канал за birthday (опционален)
 !setconfig bday_user                <id>  ← user ID за birthday (опционален)
+!setconfig blacklist_channel        <id>  ← канал за живото blacklist embed (опционален)
 ```
 
 **3. Провери какво липсва:**
@@ -405,6 +433,33 @@ Hydra - @Nami @Sanji
 
 > 💡 Когато потребител напише `!want Sunny`, ботът изпраща заявка в `crew_approval_channel` (или в `admin_log_channel`, ако той не е зададен) с бутони **✅ Approve** / **❌ Deny**. Мод или Админ натиска бутон и потребителят получава ЛС с резултата.
 ```
+---
+
+### 🏴‍☠️ Belly Rush Blacklist
+
+Имената се пазят като **обикновен текст**, не Discord потребители — работи дори за хора, които не са в сървъра.
+
+```
+!black-list                              ← показва текущия blacklist (всеки)
+!blacklist-add Luffy123 duplicate account  ← добавя име (Админ)
+!blacklist-add "Red Hair Shanks" scammer   ← кавички за имена с интервали (Админ)
+!blacklist-remove Luffy123                 ← маха име (Админ)
+```
+
+> 💡 Ако е зададен `blacklist_channel`, ботът пази **едно** живо embed съобщение там и го edit-ва при всяко добавяне/махане, вместо да спамва нови постове.
+
+---
+
+### 🎂 Birthday съобщения
+
+```
+!setconfig bday_channel <id>   ← канал за birthday съобщението
+!setconfig bday_user    <id>   ← Discord ID на рождника
+!sendbday                      ← изпраща съобщението веднага ръчно (Админ)
+```
+
+> ⚠️ Няма авто-изчистване — съобщението се изпраща **всеки ден в 08:30** (София час), докато `bday_user` е зададен. Обнови/презапиши го след рождения ден, за да не се повтаря.
+
 ---
 
 ### ⚙️ Repair Ship

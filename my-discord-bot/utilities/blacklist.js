@@ -59,7 +59,6 @@ function buildBlacklistEmbed(guild, rows) {
     const embed = new EmbedBuilder()
         .setColor('#E24B4A')
         .setTitle('🏴\u200d☠️ Belly Rush Blacklist')
-        .setDescription('Players below are banned from joining Belly Rush events.')
         .setFooter({ text: `${guild.name} • ${rows.length} blacklisted` })
         .setTimestamp();
 
@@ -71,22 +70,24 @@ function buildBlacklistEmbed(guild, rows) {
         return embed;
     }
 
-    // Discord позволява до 25 fields в едно embed — режем ако стане повече
-    const visibleRows = rows.slice(0, 25);
-
-    for (const r of visibleRows) {
-        const addedDate = r.added_at ? new Date(r.added_at).toLocaleDateString('en-GB') : 'unknown';
-        embed.addFields({
-            name: `☠️ ${r.name}`,
-            value: `**Reason:** ${r.reason}\n*Added by <@${r.added_by}> • ${addedDate}*`,
-            inline: false,
-        });
+    // Discord embeds cap at 25 fields, so we render the whole list inside the
+    // description (limit 4096 chars) instead of one field per player — this scales
+    // to any number of blacklisted names.
+    const MAX = 4096;
+    let desc = 'Players below are banned from joining Belly Rush events.\n\n';
+    let shown = 0;
+    for (const r of rows) {
+        const hasReason = r.reason && r.reason !== 'No reason provided';
+        const line = `☠️ **${r.name}**${hasReason ? ` — ${r.reason}` : ''}\n`;
+        if (desc.length + line.length > MAX - 40) break; // keep room for the "…and N more" note
+        desc += line;
+        shown++;
+    }
+    if (shown < rows.length) {
+        desc += `\n*…and ${rows.length - shown} more.*`;
     }
 
-    if (rows.length > 25) {
-        embed.addFields({ name: '\u200b', value: `*...and ${rows.length - 25} more.*` });
-    }
-
+    embed.setDescription(desc);
     return embed;
 }
 

@@ -59,8 +59,7 @@ function buildBlacklistEmbed(guild, rows) {
     const embed = new EmbedBuilder()
         .setColor('#E24B4A')
         .setTitle('🏴\u200d☠️ Belly Rush Blacklist')
-        .setFooter({ text: `${guild.name} • ${rows.length} blacklisted` })
-        .setTimestamp();
+        .setFooter({ text: `${guild.name} • ${rows.length} blacklisted` });
 
     const guildIcon = guild.iconURL ? guild.iconURL({ size: 128 }) : null;
     if (guildIcon) embed.setThumbnail(guildIcon);
@@ -70,22 +69,25 @@ function buildBlacklistEmbed(guild, rows) {
         return embed;
     }
 
-    // Discord embeds cap at 25 fields, so we render the whole list inside the
-    // description (limit 4096 chars) instead of one field per player — this scales
-    // to any number of blacklisted names.
+    // Same per-player "card" look as the field version, but rendered inside the
+    // description so it scales past Discord's 25-field-per-embed cap.
+    const sorted = [...rows].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
     const MAX = 4096;
     let desc = 'Players below are banned from joining Belly Rush events.\n\n';
     let shown = 0;
-    for (const r of rows) {
+    for (const r of sorted) {
+        const date = r.added_at ? new Date(r.added_at).toLocaleDateString('en-GB') : 'unknown';
         const hasReason = r.reason && r.reason !== 'No reason provided';
-        const line = `☠️ **${r.name}**${hasReason ? ` — ${r.reason}` : ''}\n`;
-        if (desc.length + line.length > MAX - 40) break; // keep room for the "…and N more" note
-        desc += line;
+        let block = `☠️ **${r.name}**\n`;
+        if (hasReason) block += `**Reason:** ${r.reason}\n`;
+        if (r.added_by) block += `*Added by <@${r.added_by}> • ${date}*\n`;
+        block += '\n';
+        if (desc.length + block.length > MAX - 40) break;
+        desc += block;
         shown++;
     }
-    if (shown < rows.length) {
-        desc += `\n*…and ${rows.length - shown} more.*`;
-    }
+    if (shown < sorted.length) desc += `*…and ${sorted.length - shown} more.*`;
 
     embed.setDescription(desc);
     return embed;

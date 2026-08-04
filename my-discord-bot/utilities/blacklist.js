@@ -69,25 +69,38 @@ function buildBlacklistEmbed(guild, rows) {
         return embed;
     }
 
-    // Same per-player "card" look as the field version, but rendered inside the
-    // description so it scales past Discord's 25-field-per-embed cap.
     const sorted = [...rows].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 
-    const MAX = 4096;
-    let desc = 'Players below are banned from joining Belly Rush events.\n\n';
-    let shown = 0;
-    for (const r of sorted) {
-        const date = r.added_at ? new Date(r.added_at).toLocaleDateString('en-GB') : 'unknown';
-        const hasReason = r.reason && r.reason !== 'No reason provided';
-        let block = `☠️ **${r.name}**\n`;
-        if (hasReason) block += `**Reason:** ${r.reason}\n`;
-        if (r.added_by) block += `*Added by <@${r.added_by}> • ${date}*\n`;
-        block += '\n';
-        if (desc.length + block.length > MAX - 40) break;
-        desc += block;
-        shown++;
+    // Red names need an ANSI code block; rendered as a 3-column "roster board"
+    // with gold header/footer bars. Everything lives in the description so it
+    // scales past Discord's 25-field-per-embed cap.
+    const COLS = 3, W = 15, BW = COLS * W;
+    const center = (txt, w, ch) => {
+        const pad = Math.max(0, w - txt.length), l = Math.floor(pad / 2);
+        return ch.repeat(l) + txt + ch.repeat(pad - l);
+    };
+    const GOLD = '\x1b[1;33m', RED = '\x1b[1;31m', OFF = '\x1b[0m';
+
+    let grid = '```ansi\n';
+    grid += GOLD + center(' \u2620 ROSTER \u2620 ', BW, '═') + OFF + '\n';
+    for (let i = 0; i < sorted.length; i += COLS) {
+        let row = '';
+        for (let c = 0; c < COLS && i + c < sorted.length; c++) {
+            row += RED + sorted[i + c].name.padEnd(W) + OFF;
+        }
+        grid += row + '\n';
     }
-    if (shown < sorted.length) desc += `*…and ${sorted.length - shown} more.*`;
+    grid += GOLD + center(` ${sorted.length} listed `, BW, '═') + OFF + '\n```';
+
+    const flagged = sorted.filter(r => r.reason && r.reason !== 'No reason provided');
+    let reasons = '';
+    if (flagged.length) {
+        reasons = '\n⚠️ **Rap sheet**\n' +
+            flagged.map(r => `\`•\` **${r.name}** — ${r.reason}`).join('\n');
+    }
+
+    let desc = `*Banned from all Belly Rush & Alliance events.*\n${grid}`;
+    if (reasons && (desc + reasons).length <= 4096) desc += reasons;
 
     embed.setDescription(desc);
     return embed;

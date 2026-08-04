@@ -288,6 +288,21 @@ async function initDB() {
     await pool.query(`ALTER TABLE repair_messages ADD COLUMN IF NOT EXISTS guild_name TEXT DEFAULT 'unknown';`);
     console.log("✅ Table repair_messages is ready.");
 
+    // ✅ Blacklist за Belly Rush / Blacklist for Belly Rush
+    // Пази се по ИМЕ (текст), не по Discord ID — хората в списъка не са задължително членове на сървъра
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS blacklist (
+        id SERIAL PRIMARY KEY,
+        guild_id VARCHAR(50),
+        name TEXT,
+        reason TEXT DEFAULT 'No reason provided',
+        added_by VARCHAR(50),
+        added_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(guild_id, name)
+      );
+    `);
+    console.log("✅ Table blacklist is ready.");
+
     // Clean up old translation cache / Почистване на стари преводи
     const deleteResult = await pool.query("DELETE FROM translation_cache WHERE expires_at < NOW()");
     if (deleteResult.rowCount > 0) {

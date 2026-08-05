@@ -74,7 +74,7 @@ function buildBlacklistEmbed(guild, rows) {
     // Red names need an ANSI code block; rendered as a 3-column "roster board"
     // with gold header/footer bars. Everything lives in the description so it
     // scales past Discord's 25-field-per-embed cap.
-    const COLS = 3, W = 15, BW = COLS * W;
+    const COLS = 2, W = 16, BW = COLS * W;
     const center = (txt, w, ch) => {
         const pad = Math.max(0, w - txt.length), l = Math.floor(pad / 2);
         return ch.repeat(l) + txt + ch.repeat(pad - l);

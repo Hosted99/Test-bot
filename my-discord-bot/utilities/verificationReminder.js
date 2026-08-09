@@ -8,7 +8,8 @@
 
 const { pool } = require('./db');
 
-const REMINDER_AFTER_HOURS = 10;
+// 🧪 ЗА ТЕСТ: 3 минути вместо 10 часа. Върни на 600 (10*60) след теста!
+const REMINDER_AFTER_MINUTES = 3; // production стойност: 600 (= 10 часа)
 
 async function addPendingVerification(guildId, userId) {
     await pool.query(
@@ -31,7 +32,7 @@ async function getDueReminders() {
     const result = await pool.query(
         `SELECT guild_id, user_id FROM pending_verification
          WHERE reminder_sent = false
-         AND joined_at <= NOW() - INTERVAL '${REMINDER_AFTER_HOURS} hours'`
+         AND joined_at <= NOW() - INTERVAL '${REMINDER_AFTER_MINUTES} minutes'`
     );
     return result.rows;
 }

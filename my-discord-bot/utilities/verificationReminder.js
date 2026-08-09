@@ -1,8 +1,8 @@
 /**
  * verificationReminder.js — Напомня на нови членове да си сложат nickname
  *
- * 1. При влизане: записваме реда в pending_verification + пращаме DM веднага.
- * 2. Всеки час cron проверява кой чака повече от 10ч. и още няма nickname → праща напомнящо DM.
+ * 1. При влизане: записваме реда в pending_verification (вкл. линк към welcome съобщението) + пращаме DM веднага.
+ * 2. Cron проверява кой чака повече от X минути/часа и още няма nickname → праща напомнящо DM с директен линк.
  * 3. При успешна верификация (nick_modal) редът се трие — спира напомнянията.
  */
 
@@ -11,13 +11,18 @@ const { pool } = require('./db');
 // 🧪 ЗА ТЕСТ: 3 минути вместо 10 часа. Върни на 600 (10*60) след теста!
 const REMINDER_AFTER_MINUTES = 3; // production стойност: 600 (= 10 часа)
 
-async function addPendingVerification(guildId, userId) {
+// Изгражда директен jump link към конкретно Discord съобщение
+function buildMessageLink(guildId, channelId, messageId) {
+    return `https://discord.com/channels/${guildId}/${channelId}/${messageId}`;
+}
+
+async function addPendingVerification(guildId, userId, channelId, messageId) {
     await pool.query(
-        `INSERT INTO pending_verification (guild_id, user_id, joined_at, reminder_sent)
-         VALUES ($1, $2, NOW(), false)
+        `INSERT INTO pending_verification (guild_id, user_id, channel_id, message_id, joined_at, reminder_sent)
+         VALUES ($1, $2, $3, $4, NOW(), false)
          ON CONFLICT (guild_id, user_id)
-         DO UPDATE SET joined_at = NOW(), reminder_sent = false`,
-        [guildId, userId]
+         DO UPDATE SET channel_id = $3, message_id = $4, joined_at = NOW(), reminder_sent = false`,
+        [guildId, userId, channelId, messageId]
     );
 }
 
@@ -30,7 +35,7 @@ async function removePendingVerification(guildId, userId) {
 
 async function getDueReminders() {
     const result = await pool.query(
-        `SELECT guild_id, user_id FROM pending_verification
+        `SELECT guild_id, user_id, channel_id, message_id FROM pending_verification
          WHERE reminder_sent = false
          AND joined_at <= NOW() - INTERVAL '${REMINDER_AFTER_MINUTES} minutes'`
     );
@@ -44,19 +49,20 @@ async function markReminderSent(guildId, userId) {
     );
 }
 
-// ✅ Началното DM веднага при влизане
-async function sendInitialDM(member) {
+// ✅ Началното DM веднага при влизане — с директен линк към неговото welcome съобщение
+async function sendInitialDM(member, channelId, messageId) {
     try {
+        const link = buildMessageLink(member.guild.id, channelId, messageId);
         await member.send(
             `👋 Ahoy, welcome to **${member.guild.name}**!\n\n` +
-            `To unlock the full server, head back to the welcome channel and press the **Nickname** button under the welcome message. 🏴‍☠️`
+            `To unlock the full server, head to your welcome message and press the **Nickname** button:\n${link} 🏴‍☠️`
         );
     } catch (err) {
         console.log(`[VerificationReminder] Could not DM ${member.user.tag} (DMs closed?): ${err.message}`);
     }
 }
 
-// ✅ Проверява всички чакащи и праща напомняне на тези, чакащи над 10ч.
+// ✅ Проверява всички чакащи и праща напомняне на тези, чакащи над прага
 async function checkAndSendReminders(client) {
     const dueRows = await getDueReminders();
     for (const row of dueRows) {
@@ -71,9 +77,10 @@ async function checkAndSendReminders(client) {
                 continue;
             }
 
+            const link = buildMessageLink(row.guild_id, row.channel_id, row.message_id);
             await member.send(
                 `⏰ Ahoy again! I see you still haven't set your **nickname** yet.\n\n` +
-                `If you'd like to unlock the full potential of **${guild.name}**, please press the **Nickname** button under the welcome message in the welcome channel. 🏴‍☠️`
+                `If you'd like to unlock the full potential of **${guild.name}**, please press the **Nickname** button here:\n${link} 🏴‍☠️`
             ).catch(err => console.log(`[VerificationReminder] Could not DM ${member.user.tag}: ${err.message}`));
 
             await markReminderSent(row.guild_id, row.user_id);

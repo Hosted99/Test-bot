@@ -6,9 +6,15 @@ const { getConfig, getRole, getChannel } = require('./guildConfig');
 
 const lastWelcomeMessage = new Map();
 
-const bountyTiers = [];
-for (let i = 900; i >= 50; i -= 50) {
-  bountyTiers.push({ min: i * 1000000, name: `Bounty: ${i}M+` });
+// ✅ Без таван: изчислява tier динамично на стъпки от 50M (50M+, 100M+, ... 1000M+, 1050M+, безкрайно нагоре)
+// No cap: dynamically computes the bounty tier in 50M steps, scales infinitely
+const BOUNTY_STEP = 50000000; // 50M
+const BOUNTY_FLOOR = 50000000; // под 50M няма роля / below 50M no role
+
+function getBountyTierName(amount) {
+  if (amount < BOUNTY_FLOOR) return null;
+  const tierM = Math.floor(amount / BOUNTY_STEP) * (BOUNTY_STEP / 1000000);
+  return `Bounty: ${tierM}M+`;
 }
 
 /**
@@ -62,19 +68,30 @@ async function handleNewMember(member) {
     const bountiesLink = bountiesChId ? `<#${bountiesChId}>` : 'the bounties channel';
     const generalLink = generalChId ? `<#${generalChId}>` : 'general chat';
 
+    // 🎨 GIF банер за embed-а — смени с директен .gif линк (виж инструкциите в чата)
+    const WELCOME_BANNER_GIF = "https://media.tenor.com/CHANGE_ME.gif";
+
     const embed = new EmbedBuilder()
-      .setTitle("⚓ New Pirate Aboard!")
-      .setDescription(
-        `Ahoy, pirate ${member}! 🏴‍☠️\n\n` +
-        `Welcome to **${member.guild.name}**, ruled by ${ownerMention}\n\n` +
-        `📜 **The Pirate Code:** Check ${rulesLink} or risk walking the plank!\n\n` +
-        `💰 **Bounties:** Drop your in-game profile pic in ${bountiesLink} to claim your reward!\n\n` +
-        `👋 **The Tavern:** Say hi in ${generalLink}, but first put a NickName!\n\n` +
-        `📝 **Nickname:** To unlock the server, press the button below and enter your nickname.\n` +
-        `*Note: Your name should include the guild name or tag (e.g., TS ${member.user.username}, Thousand Sunny ${member.user.username}).*`
+      .setAuthor({
+        name: `Welcome to ${member.guild.name}!`,
+        iconURL: member.guild.iconURL({ size: 128 }) || undefined,
+      })
+      .setTitle(`⚓ ${member.user.username} has boarded the ship! 🏴‍☠️`)
+      .setDescription(`Ahoy, ${member}! Ruled by ${ownerMention} 👑`)
+      .addFields(
+        { name: "📜 The Pirate Code", value: `Check ${rulesLink} or risk walking the plank!`, inline: false },
+        { name: "💰 Bounties", value: `Drop your in-game profile pic in ${bountiesLink} to claim your reward!`, inline: false },
+        { name: "👋 The Tavern", value: `Say hi in ${generalLink}, but first put a NickName!`, inline: false },
+        {
+          name: "📝 Unlock the Server",
+          value: `Press the button below and enter your nickname.\n*Include your guild tag, e.g. TS ${member.user.username}, Thousand Sunny ${member.user.username}.*`,
+          inline: false,
+        }
       )
       .setColor("#2ECC71")
-      .setThumbnail(member.user.displayAvatarURL())
+      .setThumbnail(member.user.displayAvatarURL({ size: 256 }))
+      .setImage(WELCOME_BANNER_GIF)
+      .setFooter({ text: `Pirate #${member.guild.memberCount} • ${member.guild.name}` })
       .setTimestamp();
 
     const row = new ActionRowBuilder().addComponents(
@@ -226,8 +243,7 @@ async function handleRoleCommands(msg, cmd, args) {
 async function updateBountyRole(member, amount) {
     if (!member) return null;
     try {
-        const tier = bountyTiers.find(t => amount >= t.min);
-        const newRoleName = tier ? tier.name : null;
+        const newRoleName = getBountyTierName(amount);
         const currentBountyRoles = member.roles.cache.filter(r => r.name.startsWith("Bounty: "));
         if (newRoleName && member.roles.cache.some(r => r.name === newRoleName)) return newRoleName;
         if (currentBountyRoles.size > 0) await member.roles.remove(currentBountyRoles);

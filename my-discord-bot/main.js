@@ -155,16 +155,9 @@ client.once("clientReady", async () => {
         });
     }, { timezone: "Europe/London" });
 
-    // ✅ Всеки час проверява за членове без nickname над 10ч. и им праща напомнящо DM
-    // 🧪 ЗА ТЕСТ: '* * * * *' (всяка минута) вместо '0 * * * *' (всеки час). Върни след теста!
-    const { checkAndSendReminders } = require('./utilities/verificationReminder');
-    cron.schedule('* * * * *', async () => {
-        try {
-            await checkAndSendReminders(client);
-        } catch (err) {
-            console.error('[VerificationReminder] Cron error:', err.message);
-        }
-    });
+    // ℹ️ Nickname reminder проверката вече се изпълнява вътре в leveling.js
+    // (в същия 2-часов sync cron, за да не будим базата отделно) — виж utilities/leveling.js
+
 
     // Изпращане на системно съобщение за статус "Online" в конфигурирания канал на всеки сървър
     client.guilds.cache.forEach(async (guild) => {

@@ -156,8 +156,9 @@ client.once("clientReady", async () => {
     }, { timezone: "Europe/London" });
 
     // ✅ Всеки час проверява за членове без nickname над 10ч. и им праща напомнящо DM
+    // 🧪 ЗА ТЕСТ: '* * * * *' (всяка минута) вместо '0 * * * *' (всеки час). Върни след теста!
     const { checkAndSendReminders } = require('./utilities/verificationReminder');
-    cron.schedule('0 * * * *', async () => {
+    cron.schedule('* * * * *', async () => {
         try {
             await checkAndSendReminders(client);
         } catch (err) {

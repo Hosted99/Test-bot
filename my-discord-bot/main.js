@@ -132,6 +132,7 @@ client.once("clientReady", async () => {
     initSchedulers(client, pool);
     levelingSystem(client, { pool });
     initTranslateSystem(client); 
+    startBirthdayTimer(client); // ✅ FIX: този ред липсваше — birthday cron никога не се стартираше
     console.log(`🤖 Online as: ${client.user.tag}`);
 
     // Кеширане на потребителите във всички сървъри
@@ -153,6 +154,16 @@ client.once("clientReady", async () => {
             }
         });
     }, { timezone: "Europe/London" });
+
+    // ✅ Всеки час проверява за членове без nickname над 10ч. и им праща напомнящо DM
+    const { checkAndSendReminders } = require('./utilities/verificationReminder');
+    cron.schedule('0 * * * *', async () => {
+        try {
+            await checkAndSendReminders(client);
+        } catch (err) {
+            console.error('[VerificationReminder] Cron error:', err.message);
+        }
+    });
 
     // Изпращане на системно съобщение за статус "Online" в конфигурирания канал на всеки сървър
     client.guilds.cache.forEach(async (guild) => {
@@ -417,57 +428,79 @@ client.on("messageCreate", async (msg) => {
         }
 
         if (cmd === "!black-list" || cmd === "!blacklist") {
+            // ✅ Показва текущия blacklist — вижда се от всеки
             try {
                 const { getBlacklist, buildBlacklistEmbed } = require('./utilities/blacklist.js');
                 const rows = await getBlacklist(msg.guild.id);
-                return msg.reply({ embeds: [buildBlacklistEmbed(msg.guild, rows)] });
+                const embed = buildBlacklistEmbed(msg.guild, rows);
+                return msg.reply({ embeds: [embed] });
             } catch (err) {
-                console.error('[blacklist] show failed:', err);
-                return msg.reply(`⚠️ Blacklist error: \`${err.message}\``);
+                console.error('[Blacklist] !black-list error:', err);
+                return msg.reply(`❌ Error loading the blacklist: \`${err.message}\``);
             }
         }
 
         if (cmd === "!blacklist-refresh") {
-            if (!msg.member.permissions.has('Administrator')) return msg.reply("❌ Only administrators can refresh the blacklist.");
+            // ✅ Форсира обновяване на живото embed съобщение в blacklist_channel
+            // Полезно след ръчни промени директно в базата (напр. bulk insert през Neon)
+            if (!msg.member.permissions.has('Administrator')) {
+                return msg.reply("❌ Only administrators can refresh the blacklist.");
+            }
             try {
                 const { refreshBlacklistMessage } = require('./utilities/blacklist.js');
                 const result = await refreshBlacklistMessage(msg.guild);
-                if (!result) return msg.reply("❌ `blacklist_channel` is not configured. Use `!setconfig blacklist_channel <channel>` first.");
+                if (!result) {
+                    return msg.reply("❌ `blacklist_channel` is not configured. Use `!setconfig blacklist_channel <channel>` first.");
+                }
                 return msg.reply("✅ Blacklist embed refreshed.");
             } catch (err) {
-                console.error('[blacklist] refresh failed:', err);
-                return msg.reply(`⚠️ Blacklist error: \`${err.message}\``);
+                console.error('[Blacklist] !blacklist-refresh error:', err);
+                return msg.reply(`❌ Error refreshing the blacklist: \`${err.message}\``);
             }
         }
 
         if (cmd === "!blacklist-add") {
-            if (!msg.member.permissions.has('Administrator')) return msg.reply("❌ Only administrators can manage the blacklist.");
+            // ✅ Добавя ИМЕ (не Discord потребител) в blacklist-а (само Admin)
+            if (!msg.member.permissions.has('Administrator')) {
+                return msg.reply("❌ Only administrators can manage the blacklist.");
+            }
             try {
                 const { addToBlacklist, refreshBlacklistMessage, parseNameAndReason } = require('./utilities/blacklist.js');
-                const { name, reason } = parseNameAndReason(args.join(' '));
-                if (!name) return msg.reply('❌ Format: `!blacklist-add <name> <reason>`\nFor names with spaces use quotes: `!blacklist-add "Red Hair Shanks" scammer`');
+                const rawText = args.join(' ');
+                const { name, reason } = parseNameAndReason(rawText);
+                if (!name) {
+                    return msg.reply('❌ Format: `!blacklist-add <name> <reason>`\nFor names with spaces use quotes: `!blacklist-add "Red Hair Shanks" scammer`');
+                }
                 await addToBlacklist(msg.guild.id, name, reason, msg.author.id);
                 await refreshBlacklistMessage(msg.guild);
                 return msg.reply(`✅ Added **${name}** to the blacklist: \`${reason || 'No reason provided'}\``);
             } catch (err) {
-                console.error('[blacklist] add failed:', err);
-                return msg.reply(`⚠️ Blacklist error: \`${err.message}\``);
+                console.error('[Blacklist] !blacklist-add error:', err);
+                return msg.reply(`❌ Error adding to the blacklist: \`${err.message}\``);
             }
         }
 
         if (cmd === "!blacklist-remove") {
-            if (!msg.member.permissions.has('Administrator')) return msg.reply("❌ Only administrators can manage the blacklist.");
+            // ✅ Маха ИМЕ от blacklist-а (само Admin)
+            if (!msg.member.permissions.has('Administrator')) {
+                return msg.reply("❌ Only administrators can manage the blacklist.");
+            }
             try {
                 const { removeFromBlacklist, refreshBlacklistMessage, parseNameAndReason } = require('./utilities/blacklist.js');
-                const { name } = parseNameAndReason(args.join(' '));
-                if (!name) return msg.reply('❌ Format: `!blacklist-remove <name>`\nFor names with spaces use quotes: `!blacklist-remove "Red Hair Shanks"`');
+                const rawText = args.join(' ');
+                const { name } = parseNameAndReason(rawText);
+                if (!name) {
+                    return msg.reply('❌ Format: `!blacklist-remove <name>`\nFor names with spaces use quotes: `!blacklist-remove "Red Hair Shanks"`');
+                }
                 const wasRemoved = await removeFromBlacklist(msg.guild.id, name);
-                if (!wasRemoved) return msg.reply(`❌ **${name}** is not on the blacklist.`);
+                if (!wasRemoved) {
+                    return msg.reply(`❌ **${name}** is not on the blacklist.`);
+                }
                 await refreshBlacklistMessage(msg.guild);
                 return msg.reply(`✅ Removed **${name}** from the blacklist.`);
             } catch (err) {
-                console.error('[blacklist] remove failed:', err);
-                return msg.reply(`⚠️ Blacklist error: \`${err.message}\``);
+                console.error('[Blacklist] !blacklist-remove error:', err);
+                return msg.reply(`❌ Error removing from the blacklist: \`${err.message}\``);
             }
         }
 

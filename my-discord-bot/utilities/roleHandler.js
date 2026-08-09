@@ -69,29 +69,24 @@ async function handleNewMember(member) {
     const generalLink = generalChId ? `<#${generalChId}>` : 'general chat';
 
     // 🎨 GIF банер за embed-а — смени с директен .gif линк (виж инструкциите в чата)
-    const WELCOME_BANNER_GIF = "https://media.tenor.com/CHANGE_ME.gif";
+    const WELCOME_BANNER_GIF = "https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExZjBweW4zdDlzMDVnd2l0Y3k4a2Z1a2U2cmp6cDR1dmhoZGpzdnZwNSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/jVfEGOXlm2sw0iJDat/giphy.gif";
 
     const embed = new EmbedBuilder()
-      .setAuthor({
-        name: `Welcome to ${member.guild.name}!`,
-        iconURL: member.guild.iconURL({ size: 128 }) || undefined,
-      })
-      .setTitle(`⚓ ${member.user.username} has boarded the ship! 🏴‍☠️`)
-      .setDescription(`Ahoy, ${member}! Ruled by ${ownerMention} 👑`)
-      .addFields(
-        { name: "📜 The Pirate Code", value: `Check ${rulesLink} or risk walking the plank!`, inline: false },
-        { name: "💰 Bounties", value: `Drop your in-game profile pic in ${bountiesLink} to claim your reward!`, inline: false },
-        { name: "👋 The Tavern", value: `Say hi in ${generalLink}, but first put a NickName!`, inline: false },
-        {
-          name: "📝 Unlock the Server",
-          value: `Press the button below and enter your nickname.\n*Include your guild tag, e.g. TS ${member.user.username}, Thousand Sunny ${member.user.username}.*`,
-          inline: false,
-        }
+      .setTitle("⚓ New Pirate Aboard!")
+      .setDescription(
+        `Ahoy, pirate ${member}! 🏴‍☠️\n\n` +
+        `Welcome to **${member.guild.name}**, ruled by ${ownerMention}\n\n` +
+        `📜 **The Pirate Code:** Check ${rulesLink} or risk walking the plank!\n\n` +
+        `💰 **Bounties:** Drop your in-game profile pic in ${bountiesLink} to claim your reward!\n\n` +
+        `👋 **The Tavern:** Say hi in ${generalLink}, but first put a NickName!\n\n` +
+        `📝 **Nickname:** To unlock the server, press the button below and enter your nickname.\n` +
+        "```ansi\n\u001b[1;33mNote: Your name should include the guild name or tag\u001b[0m\n" +
+        `\u001b[1;33m(e.g., TS ${member.user.username}, Thousand Sunny ${member.user.username}).\u001b[0m\n` +
+        "```"
       )
       .setColor("#2ECC71")
-      .setThumbnail(member.user.displayAvatarURL({ size: 256 }))
+      .setThumbnail(member.user.displayAvatarURL())
       .setImage(WELCOME_BANNER_GIF)
-      .setFooter({ text: `Pirate #${member.guild.memberCount} • ${member.guild.name}` })
       .setTimestamp();
 
     const row = new ActionRowBuilder().addComponents(

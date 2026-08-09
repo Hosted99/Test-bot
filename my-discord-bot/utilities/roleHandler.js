@@ -68,8 +68,9 @@ async function handleNewMember(member) {
     const bountiesLink = bountiesChId ? `<#${bountiesChId}>` : 'the bounties channel';
     const generalLink = generalChId ? `<#${generalChId}>` : 'general chat';
 
-    // 🎨 GIF банер за embed-а — смени с директен .gif линк 
+    // 🎨 GIF банер за embed-а — смени с директен .gif линк (виж инструкциите в чата)
     const WELCOME_BANNER_GIF = "https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExZjBweW4zdDlzMDVnd2l0Y3k4a2Z1a2U2cmp6cDR1dmhoZGpzdnZwNSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/jVfEGOXlm2sw0iJDat/giphy.gif";
+
     const embed = new EmbedBuilder()
       .setTitle("⚓ New Pirate Aboard!")
       .setDescription(
@@ -103,10 +104,10 @@ async function handleNewMember(member) {
 
     lastWelcomeMessage.set(member.guild.id, msg);
 
-    // ✅ Записваме за 10ч. nickname напомняне + пращаме DM веднага
+    // ✅ Записваме за nickname напомняне (с линк към точно това welcome съобщение) + пращаме DM веднага
     const { addPendingVerification, sendInitialDM } = require('./verificationReminder');
-    await addPendingVerification(member.guild.id, member.id).catch(err => console.error('[Verification] DB insert error:', err.message));
-    await sendInitialDM(member);
+    await addPendingVerification(member.guild.id, member.id, msg.channel.id, msg.id).catch(err => console.error('[Verification] DB insert error:', err.message));
+    await sendInitialDM(member, msg.channel.id, msg.id);
   } catch (err) {
     console.error("Welcome error:", err);
   }

@@ -303,6 +303,19 @@ async function initDB() {
     `);
     console.log("✅ Table blacklist is ready.");
 
+    // ✅ Проследяване на нови членове без nickname, за 10ч. напомняне
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS pending_verification (
+        id SERIAL PRIMARY KEY,
+        guild_id VARCHAR(50),
+        user_id VARCHAR(50),
+        joined_at TIMESTAMP DEFAULT NOW(),
+        reminder_sent BOOLEAN DEFAULT false,
+        UNIQUE(guild_id, user_id)
+      );
+    `);
+    console.log("✅ Table pending_verification is ready.");
+
     // Clean up old translation cache / Почистване на стари преводи
     const deleteResult = await pool.query("DELETE FROM translation_cache WHERE expires_at < NOW()");
     if (deleteResult.rowCount > 0) {

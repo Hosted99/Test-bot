@@ -69,7 +69,7 @@ async function handleNewMember(member) {
     const generalLink = generalChId ? `<#${generalChId}>` : 'general chat';
 
     // 🎨 GIF банер за embed-а — смени с директен .gif линк 
-    const WELCOME_BANNER_GIF = "https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExZjBweW4zdDlzMDVnd2l0Y3k4a2Z1a2U2cmp6cDR1dmhoZGpzdnZwNSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/jVfEGOXlm2sw0iJDat/giphy.gif
+    const WELCOME_BANNER_GIF = "https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExZjBweW4zdDlzMDVnd2l0Y3k4a2Z1a2U2cmp6cDR1dmhoZGpzdnZwNSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/jVfEGOXlm2sw0iJDat/giphy.gif"
     const embed = new EmbedBuilder()
       .setTitle("⚓ New Pirate Aboard!")
       .setDescription(

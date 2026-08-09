@@ -318,6 +318,7 @@ async function initDB() {
     `);
     await pool.query(`ALTER TABLE pending_verification ADD COLUMN IF NOT EXISTS channel_id VARCHAR(50);`);
     await pool.query(`ALTER TABLE pending_verification ADD COLUMN IF NOT EXISTS message_id VARCHAR(50);`);
+    await pool.query(`ALTER TABLE pending_verification ADD COLUMN IF NOT EXISTS last_reminder_at TIMESTAMP;`);
     console.log("✅ Table pending_verification is ready.");
 
     // Clean up old translation cache / Почистване на стари преводи

@@ -366,6 +366,15 @@ if (message.content.toLowerCase().startsWith('!rank')) {
                 }
             }
 
+            // ✅ Reuse-ваме тази вече будна база връзка и за nickname reminder проверката,
+            // за да не будим базата два пъти отделно (веднъж тук, веднъж в отделен cron)
+            try {
+                const { checkAndSendReminders } = require('./verificationReminder');
+                await checkAndSendReminders(client);
+            } catch (err) {
+                console.error('[VerificationReminder] Cron error:', err.message);
+            }
+
             // Изпращаме лог само в сървърите, в които реално е имало обновяване
             for (const gId of Object.keys(countPerGuild)) {
                 const guild = client.guilds.cache.get(gId);

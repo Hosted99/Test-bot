@@ -8,8 +8,8 @@
 
 const { pool } = require('./db');
 
-// 🧪 ЗА ТЕСТ: 3 минути вместо 10 часа. Върни на 600 (10*60) след теста!
-const REMINDER_INTERVAL_MINUTES = 3; // production стойност: 600 (= 10 часа)
+// 🧪 ЗА ТЕСТ: 3 минути 
+const REMINDER_INTERVAL_MINUTES = 600; // production стойност: 600 (= 10 часа)
 
 // Изгражда директен jump link към конкретно Discord съобщение
 function buildMessageLink(guildId, channelId, messageId) {

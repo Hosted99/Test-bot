@@ -309,11 +309,15 @@ async function initDB() {
         id SERIAL PRIMARY KEY,
         guild_id VARCHAR(50),
         user_id VARCHAR(50),
+        channel_id VARCHAR(50),
+        message_id VARCHAR(50),
         joined_at TIMESTAMP DEFAULT NOW(),
         reminder_sent BOOLEAN DEFAULT false,
         UNIQUE(guild_id, user_id)
       );
     `);
+    await pool.query(`ALTER TABLE pending_verification ADD COLUMN IF NOT EXISTS channel_id VARCHAR(50);`);
+    await pool.query(`ALTER TABLE pending_verification ADD COLUMN IF NOT EXISTS message_id VARCHAR(50);`);
     console.log("✅ Table pending_verification is ready.");
 
     // Clean up old translation cache / Почистване на стари преводи

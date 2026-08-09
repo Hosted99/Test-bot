@@ -8,8 +8,7 @@
 
 const { pool } = require('./db');
 
-// 🧪 ЗА ТЕСТ: 3 минути 
-const REMINDER_INTERVAL_MINUTES = 600; // production стойност: 600 (= 10 часа)
+const REMINDER_INTERVAL_MINUTES = 360; // 6 часа (проверката се случва на всеки 2ч. sync cron)
 
 // Изгражда директен jump link към конкретно Discord съобщение
 function buildMessageLink(guildId, channelId, messageId) {

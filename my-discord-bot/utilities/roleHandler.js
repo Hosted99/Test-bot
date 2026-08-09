@@ -68,9 +68,8 @@ async function handleNewMember(member) {
     const bountiesLink = bountiesChId ? `<#${bountiesChId}>` : 'the bounties channel';
     const generalLink = generalChId ? `<#${generalChId}>` : 'general chat';
 
-    // 🎨 GIF банер за embed-а — смени с директен .gif линк (виж инструкциите в чата)
-    const WELCOME_BANNER_GIF = "https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExZjBweW4zdDlzMDVnd2l0Y3k4a2Z1a2U2cmp6cDR1dmhoZGpzdnZwNSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/jVfEGOXlm2sw0iJDat/giphy.gif";
-
+    // 🎨 GIF банер за embed-а — смени с директен .gif линк 
+    const WELCOME_BANNER_GIF = "https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExZjBweW4zdDlzMDVnd2l0Y3k4a2Z1a2U2cmp6cDR1dmhoZGpzdnZwNSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/jVfEGOXlm2sw0iJDat/giphy.gif
     const embed = new EmbedBuilder()
       .setTitle("⚓ New Pirate Aboard!")
       .setDescription(
@@ -103,6 +102,11 @@ async function handleNewMember(member) {
     });
 
     lastWelcomeMessage.set(member.guild.id, msg);
+
+    // ✅ Записваме за 10ч. nickname напомняне + пращаме DM веднага
+    const { addPendingVerification, sendInitialDM } = require('./verificationReminder');
+    await addPendingVerification(member.guild.id, member.id).catch(err => console.error('[Verification] DB insert error:', err.message));
+    await sendInitialDM(member);
   } catch (err) {
     console.error("Welcome error:", err);
   }
@@ -149,6 +153,10 @@ async function handleInteraction(interaction) {
       await member.setNickname(newNick);
       if (rookieRole) await member.roles.remove(rookieRole).catch(() => {});
       if (playerRole) await member.roles.add(playerRole).catch(() => {});
+
+      // ✅ Верифициран е — спираме бъдещите напомняния
+      const { removePendingVerification } = require('./verificationReminder');
+      await removePendingVerification(guild.id, member.id).catch(() => {});
 
       return interaction.reply({ content: `✅ Welcome, **${newNick}**!`, flags: 64 });
     } catch (err) {

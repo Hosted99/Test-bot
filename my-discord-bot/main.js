@@ -421,6 +421,21 @@ client.on("messageCreate", async (msg) => {
             return msg.reply(`✅ Configuration saved: \`${key}\` = \`${value}\``);
         }
 
+        if (cmd === "!unsetconfig") {
+            // ✅ Реално ИЗТРИВА ключ от конфига (не просто го презаписва с "0"/боклук стойност,
+            // защото в JS "0" е truthy и такива стойности пак минават проверки от рода на !friendId)
+            if (!msg.member.permissions.has('Administrator')) {
+                return msg.reply("❌ Only administrators can configure the bot.");
+            }
+            const key = args[0];
+            if (!key) {
+                return msg.reply("❌ Format: `!unsetconfig <key>`\nExample: `!unsetconfig bday_user`");
+            }
+            const { deleteConfig } = require("./utilities/guildConfig");
+            await deleteConfig(msg.guild.id, key);
+            return msg.reply(`✅ Cleared: \`${key}\` (removed from config).`);
+        }
+
         if (cmd === "!black-list" || cmd === "!blacklist") {
             // ✅ Показва текущия blacklist — вижда се от всеки
             try {

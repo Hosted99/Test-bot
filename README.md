@@ -145,6 +145,10 @@ Hydra - @Nami @Sanji
 > `!post-roles-info` — posts the rules card in `belly_rush_roles_channel` *(Admin)*
 > `!post-crew-info` — posts the ship-management/approval guide in `crew_approval_channel` (or `admin_log_channel` if that's not set) *(Admin)*
 > Run either command again any time to **edit** the same message with fresh text — it never creates a duplicate post, and the original post date stays untouched.
+
+> 📋 **Shipless member list (auto-updating, edit-in-place):**
+> `!post-shipless-list` — posts the list once in `shipless_list_channel` *(Admin, needs `!setconfig shipless_list_channel <channel>` first)*
+> After that it updates **automatically** — no command needed — every time a member gains or loses a ship role (button, `!ship-captain`, `!ship-addpermanent`, or a manual role change), so the list always reflects reality.
 ```
 ---
 
@@ -446,6 +450,10 @@ Hydra - @Nami @Sanji
 > `!post-roles-info` — праща/обновява правилата в `belly_rush_roles_channel` *(Админ)*
 > `!post-crew-info` — праща/обновява гайда за управление на кораби + одобрения в `crew_approval_channel` (или `admin_log_channel`, ако не е зададен) *(Админ)*
 > Пускаш командата пак по всяко време, за да **редактираш** същото съобщение с нов текст — никога не създава дубликат, а датата на оригиналния пост остава непроменена.
+
+> 📋 **Списък с членове без кораб (авто-обновяващ се, редактира се на място):**
+> `!post-shipless-list` — постван веднъж в `shipless_list_channel` *(Админ, нужен е първо `!setconfig shipless_list_channel <channel>`)*
+> След това се обновява **автоматично** — без команда — всеки път когато член получи или загуби ship роля (бутон, `!ship-captain`, `!ship-addpermanent`, или ръчна промяна на роля), така че списъкът винаги отразява реалността.
 ```
 ---
 

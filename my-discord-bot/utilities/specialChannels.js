@@ -98,6 +98,33 @@ async function handleSpecialChannels(msg) {
         return true;
     }
 
+    // ✅ МУЛТИ-СЪРВЪР: канал само за ship команди (!ship-captain, !want, и т.н.)
+    const rolesChannelId = await getConfig(msg.guild.id, 'belly_rush_roles_channel');
+    const isRolesChannel = rolesChannelId
+        ? msg.channel.id === rolesChannelId
+        : msg.channel.name.toLowerCase().includes('belly-rush-roles');
+
+    if (isRolesChannel) {
+        const content = msg.content.trim();
+
+        if (content.startsWith('!')) {
+            // Валидна команда — оставяме commandHandler / ship.js да я обработят
+            return false;
+        } else {
+            // Всичко останало се трие
+            try {
+                await msg.delete();
+                const warning = await msg.channel.send(
+                    `⚠️ ${msg.author}, this channel is only for ship selection commands (e.g. \`!want <ship>\`, \`!ship-captain @user <ship>\`)!`
+                );
+                setTimeout(() => warning.delete().catch(() => {}), 5000);
+            } catch (err) {
+                console.error("Belly-rush-roles channel error:", err.message);
+            }
+            return true;
+        }
+    }
+
     // ✅ Photos only канали
     if (msg.channel.name.toLowerCase().includes("photos")) {
         if (msg.attachments.size === 0) {

@@ -191,6 +191,32 @@ client.on("guildMemberAdd", async (member) => {
     await handleNewMember(member);
 });
 
+// ✅ Авто-обновяване на shipless списъка при промяна на ship роля
+// (бутон, !ship-captain, !ship-addpermanent, ръчно от админ — всичко минава оттук)
+client.on("guildMemberUpdate", async (oldMember, newMember) => {
+    try {
+        if (oldMember.roles.cache.size === newMember.roles.cache.size &&
+            oldMember.roles.cache.every(r => newMember.roles.cache.has(r.id))) {
+            return; // Няма реална промяна в ролите
+        }
+
+        const { getShips } = require('./utilities/ship.js');
+        const ships = await getShips(newMember.guild.id);
+        const shipRoleIds = ships.map(s => s.role_id).filter(Boolean);
+        if (shipRoleIds.length === 0) return;
+
+        const changedShipRole = shipRoleIds.some(roleId =>
+            oldMember.roles.cache.has(roleId) !== newMember.roles.cache.has(roleId)
+        );
+        if (!changedShipRole) return;
+
+        const { refreshShiplessList } = require('./utilities/shiplessList.js');
+        await refreshShiplessList(newMember.guild);
+    } catch (err) {
+        console.error('[ShiplessList] guildMemberUpdate error:', err.message);
+    }
+});
+
 // Основно събитие за обработка на текстови съобщения
 client.on("messageCreate", async (msg) => {
 
@@ -436,22 +462,52 @@ client.on("messageCreate", async (msg) => {
             return msg.reply(`✅ Cleared: \`${key}\` (removed from config).`);
         }
 
+        if (cmd === "!post-shipless-list") {
+            // ✅ Постоянен списък с членове без кораб — постват се веднъж, после само се edit-ват (авто-обновява се и при промяна на ship роля)
+            if (!msg.member.permissions.has('Administrator')) {
+                return msg.reply("❌ Only administrators can post the shipless list.");
+            }
+            try { await msg.delete(); } catch (err) {}
+            try {
+                const { refreshShiplessList } = require('./utilities/shiplessList.js');
+                const result = await refreshShiplessList(msg.guild);
+                if (!result) {
+                    const warn = await msg.channel.send("❌ `shipless_list_channel` is not configured. Use `!setconfig shipless_list_channel <channel>` first.");
+                    setTimeout(() => warn.delete().catch(() => {}), 5000);
+                    return;
+                }
+                const confirm = await msg.channel.send(`✅ Shipless list posted/updated in ${result.channel}.`);
+                setTimeout(() => confirm.delete().catch(() => {}), 3000);
+            } catch (err) {
+                console.error('[ShiplessList] !post-shipless-list error:', err);
+                const warn = await msg.channel.send(`❌ Error posting shipless list: \`${err.message}\``);
+                setTimeout(() => warn.delete().catch(() => {}), 5000);
+            }
+            return;
+        }
+
         if (cmd === "!post-roles-info") {
             // ✅ Постоянни инструкции в belly_rush_roles_channel — постват се веднъж, после само се edit-ват
             if (!msg.member.permissions.has('Administrator')) {
                 return msg.reply("❌ Only administrators can post channel instructions.");
             }
+            try { await msg.delete(); } catch (err) {}
             try {
                 const { refreshRolesInstructions } = require('./utilities/channelInstructions.js');
                 const result = await refreshRolesInstructions(msg.guild);
                 if (!result) {
-                    return msg.reply("❌ `belly_rush_roles_channel` is not configured. Use `!setconfig belly_rush_roles_channel <channel>` first.");
+                    const warn = await msg.channel.send("❌ `belly_rush_roles_channel` is not configured. Use `!setconfig belly_rush_roles_channel <channel>` first.");
+                    setTimeout(() => warn.delete().catch(() => {}), 5000);
+                    return;
                 }
-                return msg.reply(`✅ Instructions posted/updated in ${result.channel}.`);
+                const confirm = await msg.channel.send(`✅ Instructions posted/updated in ${result.channel}.`);
+                setTimeout(() => confirm.delete().catch(() => {}), 3000);
             } catch (err) {
                 console.error('[ChannelInstructions] !post-roles-info error:', err);
-                return msg.reply(`❌ Error posting instructions: \`${err.message}\``);
+                const warn = await msg.channel.send(`❌ Error posting instructions: \`${err.message}\``);
+                setTimeout(() => warn.delete().catch(() => {}), 5000);
             }
+            return;
         }
 
         if (cmd === "!post-crew-info") {
@@ -459,17 +515,23 @@ client.on("messageCreate", async (msg) => {
             if (!msg.member.permissions.has('Administrator')) {
                 return msg.reply("❌ Only administrators can post channel instructions.");
             }
+            try { await msg.delete(); } catch (err) {}
             try {
                 const { refreshCrewInstructions } = require('./utilities/channelInstructions.js');
                 const result = await refreshCrewInstructions(msg.guild);
                 if (!result) {
-                    return msg.reply("❌ Neither `crew_approval_channel` nor `admin_log_channel` is configured. Use `!setconfig crew_approval_channel <channel>` first.");
+                    const warn = await msg.channel.send("❌ Neither `crew_approval_channel` nor `admin_log_channel` is configured. Use `!setconfig crew_approval_channel <channel>` first.");
+                    setTimeout(() => warn.delete().catch(() => {}), 5000);
+                    return;
                 }
-                return msg.reply(`✅ Instructions posted/updated in ${result.channel}.`);
+                const confirm = await msg.channel.send(`✅ Instructions posted/updated in ${result.channel}.`);
+                setTimeout(() => confirm.delete().catch(() => {}), 3000);
             } catch (err) {
                 console.error('[ChannelInstructions] !post-crew-info error:', err);
-                return msg.reply(`❌ Error posting instructions: \`${err.message}\``);
+                const warn = await msg.channel.send(`❌ Error posting instructions: \`${err.message}\``);
+                setTimeout(() => warn.delete().catch(() => {}), 5000);
             }
+            return;
         }
 
         if (cmd === "!black-list" || cmd === "!blacklist") {
@@ -679,6 +741,7 @@ client.on("messageCreate", async (msg) => {
                 { key: "welcome_channel",           desc: "New members chat",           type: "channel" },
                 { key: "belly_rush_channel",        desc: "Belly Rush panel",            type: "channel" },
                 { key: "belly_rush_roles_channel",  desc: "Ship commands only (!want, !ship-captain, etc.)", type: "channel" },
+                { key: "shipless_list_channel",     desc: "Auto-updating list of members without a ship", type: "channel" },
                 { key: "reminders_channel",         desc: "Reminders notifications",     type: "channel" },
                 { key: "repair_channel",            desc: "Repair-ship deck",            type: "channel" },
                 { key: "translator_channel",        desc: "AI Translator room",          type: "channel" },

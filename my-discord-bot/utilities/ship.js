@@ -544,4 +544,4 @@ async function addPermanentCrew(guild, member, ship, pool) {
     );
 }
 
-module.exports = { sendShipPanelDirect, handleShipInteraction, handleMessage, addPermanentCrew };
+module.exports = { sendShipPanelDirect, handleShipInteraction, handleMessage, addPermanentCrew, getShips };

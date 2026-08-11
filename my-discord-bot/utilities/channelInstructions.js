@@ -23,7 +23,7 @@ function buildRolesInstructionsEmbed(guild) {
     const embed = new EmbedBuilder()
         .setColor('#3498db')
         .setTitle('🚢 Belly Rush Roles — Channel Rules')
-        .setDescription('This channel is for **ship selection commands only**. Anything       TEST           that is not a command gets deleted automatically.')
+        .setDescription('This channel is for **ship selection commands only**. Anything that is not a command gets deleted automatically.')
         .addFields(
             {
                 name: '📋 Available Commands',

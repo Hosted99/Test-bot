@@ -436,6 +436,42 @@ client.on("messageCreate", async (msg) => {
             return msg.reply(`✅ Cleared: \`${key}\` (removed from config).`);
         }
 
+        if (cmd === "!post-roles-info") {
+            // ✅ Постоянни инструкции в belly_rush_roles_channel — постват се веднъж, после само се edit-ват
+            if (!msg.member.permissions.has('Administrator')) {
+                return msg.reply("❌ Only administrators can post channel instructions.");
+            }
+            try {
+                const { refreshRolesInstructions } = require('./utilities/channelInstructions.js');
+                const result = await refreshRolesInstructions(msg.guild);
+                if (!result) {
+                    return msg.reply("❌ `belly_rush_roles_channel` is not configured. Use `!setconfig belly_rush_roles_channel <channel>` first.");
+                }
+                return msg.reply(`✅ Instructions posted/updated in ${result.channel}.`);
+            } catch (err) {
+                console.error('[ChannelInstructions] !post-roles-info error:', err);
+                return msg.reply(`❌ Error posting instructions: \`${err.message}\``);
+            }
+        }
+
+        if (cmd === "!post-crew-info") {
+            // ✅ Постоянни инструкции в crew_approval_channel — постват се веднъж, после само се edit-ват
+            if (!msg.member.permissions.has('Administrator')) {
+                return msg.reply("❌ Only administrators can post channel instructions.");
+            }
+            try {
+                const { refreshCrewInstructions } = require('./utilities/channelInstructions.js');
+                const result = await refreshCrewInstructions(msg.guild);
+                if (!result) {
+                    return msg.reply("❌ Neither `crew_approval_channel` nor `admin_log_channel` is configured. Use `!setconfig crew_approval_channel <channel>` first.");
+                }
+                return msg.reply(`✅ Instructions posted/updated in ${result.channel}.`);
+            } catch (err) {
+                console.error('[ChannelInstructions] !post-crew-info error:', err);
+                return msg.reply(`❌ Error posting instructions: \`${err.message}\``);
+            }
+        }
+
         if (cmd === "!black-list" || cmd === "!blacklist") {
             // ✅ Показва текущия blacklist — вижда се от всеки
             try {

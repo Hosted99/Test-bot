@@ -49,19 +49,31 @@ function buildShiplessEmbed(guild, shiplessMembers) {
         return embed;
     }
 
-    const intro = `**${shiplessMembers.length}** member(s) have not joined a ship yet.\nThis list updates automatically when someone gets or loses a ship role.\n\n`;
-    let names = shiplessMembers.map(m => `• ${m}`).join('\n');
+    embed.setDescription(`**${shiplessMembers.length}** member(s) have not joined a ship yet.\nThis list updates automatically when someone gets or loses a ship role.`);
 
-    // Description лимит е 4096 символа — ако сме близо до него, отрязваме и показваме бройката останали
-    const maxNamesLength = 4096 - intro.length - 50;
-    if (names.length > maxNamesLength) {
-        const truncated = names.slice(0, maxNamesLength);
-        const lastNewline = truncated.lastIndexOf('\n');
-        const shownCount = truncated.slice(0, lastNewline).split('\n').length;
-        names = truncated.slice(0, lastNewline) + `\n… and ${shiplessMembers.length - shownCount} more`;
+    // ✅ Разделяме на 2 колони (inline fields) — по-компактно и лесно за четене
+    const names = shiplessMembers.map(m => `• ${m}`);
+    const half = Math.ceil(names.length / 2);
+    const columns = [names.slice(0, half), names.slice(half)];
+
+    for (const column of columns) {
+        if (column.length === 0) continue;
+        // Всяка колона пак може да прехвърли 1024 символа при много членове — chunk-ваме допълнително
+        let chunk = [];
+        let chunkLength = 0;
+        for (const name of column) {
+            if (chunkLength + name.length + 1 > 1000) {
+                embed.addFields({ name: '\u200b', value: chunk.join('\n'), inline: true });
+                chunk = [];
+                chunkLength = 0;
+            }
+            chunk.push(name);
+            chunkLength += name.length + 1;
+        }
+        if (chunk.length > 0) {
+            embed.addFields({ name: '\u200b', value: chunk.join('\n'), inline: true });
+        }
     }
-
-    embed.setDescription(intro + names);
 
     return embed;
 }

@@ -642,7 +642,7 @@ client.on("messageCreate", async (msg) => {
                 { key: "admin_log_channel",         desc: "Moderation logs",            type: "channel" },
                 { key: "welcome_channel",           desc: "New members chat",           type: "channel" },
                 { key: "belly_rush_channel",        desc: "Belly Rush panel",            type: "channel" },
-                { key: "belly_rush_roles_channel",  desc: "!want commands",               type: "channel" },
+                { key: "belly_rush_roles_channel",  desc: "Ship commands only (!want, !ship-captain, etc.)", type: "channel" },
                 { key: "reminders_channel",         desc: "Reminders notifications",     type: "channel" },
                 { key: "repair_channel",            desc: "Repair-ship deck",            type: "channel" },
                 { key: "translator_channel",        desc: "AI Translator room",          type: "channel" },

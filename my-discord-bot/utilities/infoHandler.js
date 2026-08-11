@@ -37,7 +37,7 @@ const sendBotManual = async (guild) => {
             },
             {
                 name: "🚢 5. Belly Rush Registration",
-                value: "• Use buttons to join your ship when the panel is posted.\n• `!want <ship-name>` — Request a **permanent** spot in the belly-rush-roles channel.\n• ⚠️ The **belly-rush-roles channel accepts commands only** — any other message is auto-deleted.\n• `!setup` — Manually send the panel *(Admin)*\n• `!ship-add <name> <emoji> @role` — Add a ship *(Admin)*\n• `!ship-captain @user <ship>` — Set a permanent captain *(Admin)*\n• `!post-roles-info` — Post/update the pinned rules in the roles channel *(Admin)*\n• `!post-crew-info` — Post/update the pinned mod guide in the crew-approval channel *(Admin)*"
+                value: "• Use buttons to join your ship when the panel is posted.\n• `!want <ship-name>` — Request a **permanent** spot in the belly-rush-roles channel.\n• ⚠️ The **belly-rush-roles channel accepts commands only** — any other message is auto-deleted.\n• `!setup` — Manually send the panel *(Admin)*\n• `!ship-add <name> <emoji> @role` — Add a ship *(Admin)*\n• `!ship-captain @user <ship>` — Set a permanent captain *(Admin)*\n• `!post-roles-info` — Post/update the pinned rules in the roles channel *(Admin)*\n• `!post-crew-info` — Post/update the pinned mod guide in the crew-approval channel *(Admin)*\n• `!post-shipless-list` — Post/update the auto-updating list of members without a ship *(Admin)*"
             },
             {
                 name: "⚙️ 6. Repair Ship",

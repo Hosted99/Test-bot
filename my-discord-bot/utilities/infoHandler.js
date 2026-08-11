@@ -37,7 +37,7 @@ const sendBotManual = async (guild) => {
             },
             {
                 name: "🚢 5. Belly Rush Registration",
-                value: "• Use buttons to join your ship when the panel is posted.\n• `!want <ship-name>` — Request a **permanent** spot in the belly-rush-roles channel.\n• `!setup` — Manually send the panel *(Admin)*\n• `!ship-add <name> <emoji> @role` — Add a ship *(Admin)*\n• `!ship-captain @user <ship>` — Set a permanent captain *(Admin)*"
+                value: "• Use buttons to join your ship when the panel is posted.\n• `!want <ship-name>` — Request a **permanent** spot in the belly-rush-roles channel.\n• ⚠️ The **belly-rush-roles channel accepts commands only** — any other message is auto-deleted.\n• `!setup` — Manually send the panel *(Admin)*\n• `!ship-add <name> <emoji> @role` — Add a ship *(Admin)*\n• `!ship-captain @user <ship>` — Set a permanent captain *(Admin)*"
             },
             {
                 name: "⚙️ 6. Repair Ship",

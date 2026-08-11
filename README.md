@@ -140,6 +140,11 @@ Hydra - @Nami @Sanji
 > 💡 When a user types `!want Sunny`, the bot sends a request to `crew_approval_channel` (or `admin_log_channel` if that isn't set) with **✅ Approve** / **❌ Deny** buttons. A Mod or Admin clicks the button and the user gets a DM with the result.
 
 > ⚠️ **The `belly_rush_roles_channel` accepts commands only.** Any message that isn't a `!` command (e.g. `!want`, `!ship-captain`, `!ship-list`) is auto-deleted with a warning: *"this channel is only for ship selection commands"*.
+
+> 📌 **Pinned instructions (edit-in-place, never repost):**
+> `!post-roles-info` — posts the rules card in `belly_rush_roles_channel` *(Admin)*
+> `!post-crew-info` — posts the ship-management/approval guide in `crew_approval_channel` (or `admin_log_channel` if that's not set) *(Admin)*
+> Run either command again any time to **edit** the same message with fresh text — it never creates a duplicate post, and the original post date stays untouched.
 ```
 ---
 
@@ -436,6 +441,11 @@ Hydra - @Nami @Sanji
 > 💡 Когато потребител напише `!want Sunny`, ботът изпраща заявка в `crew_approval_channel` (или в `admin_log_channel`, ако той не е зададен) с бутони **✅ Approve** / **❌ Deny**. Мод или Админ натиска бутон и потребителят получава ЛС с резултата.
 
 > ⚠️ **Каналът `belly_rush_roles_channel` приема само команди.** Всяко съобщение, което не е `!` команда (напр. `!want`, `!ship-captain`, `!ship-list`), се трие автоматично с предупреждение: *"this channel is only for ship selection commands"*.
+
+> 📌 **Постоянни инструкции (редактират се на място, не се препращат наново):**
+> `!post-roles-info` — праща/обновява правилата в `belly_rush_roles_channel` *(Админ)*
+> `!post-crew-info` — праща/обновява гайда за управление на кораби + одобрения в `crew_approval_channel` (или `admin_log_channel`, ако не е зададен) *(Админ)*
+> Пускаш командата пак по всяко време, за да **редактираш** същото съобщение с нов текст — никога не създава дубликат, а датата на оригиналния пост остава непроменена.
 ```
 ---
 

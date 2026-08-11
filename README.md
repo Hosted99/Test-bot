@@ -16,7 +16,7 @@ Settings → Advanced → Developer Mode → right-click channel/role → **Copy
 !setconfig welcome_channel          <id>  ← channel for new members
 !setconfig belly_rush_channel       <id>  ← channel for the Belly Rush panel
 !setconfig crew_approval_channel    <id>  ← channel for permanent crew approvals (optional)
-!setconfig belly_rush_roles_channel <id>  ← channel for !want commands
+!setconfig belly_rush_roles_channel <id>  ← channel for ship commands only (!want, !ship-captain, etc — everything else auto-deleted)
 !setconfig reminders_channel        <id>  ← channel for reminders
 !setconfig repair_channel           <id>  ← channel for repair-ship commands
 !setconfig translator_channel       <id>  ← channel for two-way AI translator
@@ -138,6 +138,8 @@ Hydra - @Nami @Sanji
     > The bot will automatically recognize members with this role as authorized managers for the fleet on a per-server basis!
 
 > 💡 When a user types `!want Sunny`, the bot sends a request to `crew_approval_channel` (or `admin_log_channel` if that isn't set) with **✅ Approve** / **❌ Deny** buttons. A Mod or Admin clicks the button and the user gets a DM with the result.
+
+> ⚠️ **The `belly_rush_roles_channel` accepts commands only.** Any message that isn't a `!` command (e.g. `!want`, `!ship-captain`, `!ship-list`) is auto-deleted with a warning: *"this channel is only for ship selection commands"*.
 ```
 ---
 
@@ -311,7 +313,7 @@ Settings → Advanced → Developer Mode → десен клик на канал
 !setconfig welcome_channel          <id>  ← канал за нови членове
 !setconfig belly_rush_channel       <id>  ← канал за Belly Rush панела
 !setconfig crew_approval_channel    <id>  ← канал за одобрения на постоянен екипаж (опционален)
-!setconfig belly_rush_roles_channel <id>  ← канал за !want команди
+!setconfig belly_rush_roles_channel <id>  ← канал само за ship команди (!want, !ship-captain и т.н. — всичко друго се трие автоматично)
 !setconfig reminders_channel        <id>  ← канал за напомняния
 !setconfig repair_channel           <id>  ← канал за repair-ship команди
 !setconfig translator_channel       <id>  ← канал за двупосочен AI превод
@@ -432,6 +434,8 @@ Hydra - @Nami @Sanji
     > Ботът автоматично ще разпознае притежателите на тази роля като оторизирани лица за управление на флота per-сървър!
 
 > 💡 Когато потребител напише `!want Sunny`, ботът изпраща заявка в `crew_approval_channel` (или в `admin_log_channel`, ако той не е зададен) с бутони **✅ Approve** / **❌ Deny**. Мод или Админ натиска бутон и потребителят получава ЛС с резултата.
+
+> ⚠️ **Каналът `belly_rush_roles_channel` приема само команди.** Всяко съобщение, което не е `!` команда (напр. `!want`, `!ship-captain`, `!ship-list`), се трие автоматично с предупреждение: *"this channel is only for ship selection commands"*.
 ```
 ---
 

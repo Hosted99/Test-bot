@@ -16,8 +16,6 @@ const { EmbedBuilder } = require('discord.js');
 const { getConfig, setConfig, getChannel } = require('./guildConfig');
 const { getShips } = require('./ship');
 
-const NAMES_PER_FIELD = 35; // ~1024 char embed field лимит
-
 // ─────────────────────────────────────────────
 // Взима всички ship role_id-та + всички членове без нито един от тях
 // ─────────────────────────────────────────────
@@ -43,26 +41,27 @@ function buildShiplessEmbed(guild, shiplessMembers) {
     const embed = new EmbedBuilder()
         .setColor(shiplessMembers.length > 0 ? '#e74c3c' : '#2ecc71')
         .setTitle('⚓ Members Without a Ship')
-        .setDescription(
-            shiplessMembers.length > 0
-                ? `**${shiplessMembers.length}** member(s) have not joined a ship yet.\nThis list updates automatically when someone gets or loses a ship role.`
-                : '✅ Everyone has a ship! Nothing to see here.'
-        )
         .setFooter({ text: `${guild.name} • Belly Rush` })
         .setTimestamp();
 
-    if (shiplessMembers.length > 0) {
-        // Разделяме имената на групи, за да не пробием лимита от 1024 символа на field
-        const names = shiplessMembers.map(m => `• ${m}`); // <@id> mention
-        for (let i = 0; i < names.length; i += NAMES_PER_FIELD) {
-            const chunk = names.slice(i, i + NAMES_PER_FIELD);
-            embed.addFields({
-                name: i === 0 ? '📋 List' : '\u200b',
-                value: chunk.join('\n'),
-                inline: false
-            });
-        }
+    if (shiplessMembers.length === 0) {
+        embed.setDescription('✅ Everyone has a ship! Nothing to see here.');
+        return embed;
     }
+
+    const intro = `**${shiplessMembers.length}** member(s) have not joined a ship yet.\nThis list updates automatically when someone gets or loses a ship role.\n\n`;
+    let names = shiplessMembers.map(m => `• ${m}`).join('\n');
+
+    // Description лимит е 4096 символа — ако сме близо до него, отрязваме и показваме бройката останали
+    const maxNamesLength = 4096 - intro.length - 50;
+    if (names.length > maxNamesLength) {
+        const truncated = names.slice(0, maxNamesLength);
+        const lastNewline = truncated.lastIndexOf('\n');
+        const shownCount = truncated.slice(0, lastNewline).split('\n').length;
+        names = truncated.slice(0, lastNewline) + `\n… and ${shiplessMembers.length - shownCount} more`;
+    }
+
+    embed.setDescription(intro + names);
 
     return embed;
 }

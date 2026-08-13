@@ -53,15 +53,15 @@ const RANK_ROLES = {
 const FUNNY_FALLBACKS = [
     "Still a nobody, but at least you're a louder nobody now. 🤡",
     "Level up! Sadly, your reputation is still 0. 📉",
-    "Congratulations! You've achieved... absolutely nothing new. ✨"
-    "Level up! Your charisma dropped by 5 points. 📉"
-    "Unlocked: The ability to disappoint more people at once. 👥"
-    "Your stats are growing backward. Keep it up! 🔄"
-    "Congratulations! You have successfully wasted more time. ⏳"
-    "You've reached the top of the bottom list! 🏆"
-    "Unbelievable! You actually did something. 😮"
-    "You tried. Kind of. 🙃"
-    "Your progress is like internet explorer. 🌀"
+    "Congratulations! You've achieved... absolutely nothing new. ✨",
+    "Level up! Your charisma dropped by 5 points. 📉",
+    "Unlocked: The ability to disappoint more people at once. 👥",
+    "Your stats are growing backward. Keep it up! 🔄",
+    "Congratulations! You have successfully wasted more time. ⏳",
+    "You've reached the top of the bottom list! 🏆",
+    "Unbelievable! You actually did something. 😮",
+    "You tried. Kind of. 🙃",
+    "Your progress is like internet explorer. 🌀",
     "Localhost says you can do better. 🌐"
 
 ];

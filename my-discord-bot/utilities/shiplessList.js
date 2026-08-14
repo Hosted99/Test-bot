@@ -13,20 +13,23 @@
  */
 
 const { EmbedBuilder } = require('discord.js');
-const { getConfig, setConfig, getChannel } = require('./guildConfig');
+const { getConfig, setConfig, getChannel, getRole } = require('./guildConfig');
 const { getShips } = require('./ship');
 
 // ─────────────────────────────────────────────
-// Взима всички ship role_id-та + всички членове без нито един от тях
+// Взима всички ship role_id-та + всички членове с Belly Rush роля, без нито един ship
 // ─────────────────────────────────────────────
 
 async function getShiplessMembers(guild) {
     const ships = await getShips(guild.id);
     const shipRoleIds = ships.map(s => s.role_id).filter(Boolean);
 
+    const bellyRushRole = await getRole(guild, 'belly_rush_role');
+
     const members = await guild.members.fetch();
     const shipless = members.filter(member =>
         !member.user.bot &&
+        (!bellyRushRole || member.roles.cache.has(bellyRushRole.id)) &&
         !shipRoleIds.some(roleId => member.roles.cache.has(roleId))
     );
 

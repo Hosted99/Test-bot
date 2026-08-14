@@ -22,7 +22,7 @@ const memeSystem = require('./utilities/meme.js');
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 const translationCooldown = new Set();
 
-// Изчистване на съдържанието на съобщението от линкове, емоджита и специални символи
+// Изчистване на съдържанието на съобщението от линкове, емоджита и специални символи.
 function cleanDiscordContent(content) {
     if (!content) return "";
     const cleaned = content

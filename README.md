@@ -151,6 +151,10 @@ Hydra - @Nami @Sanji
 > `!post-shipless-list` — posts the list once in `shipless_list_channel` *(Admin, needs `!setconfig shipless_list_channel <channel>` first)*
 > Set `!setconfig belly_rush_role <role>` to only show members who actually play Belly Rush — otherwise every member without a ship shows up, including people who don't participate at all.
 > After that it updates **automatically** — no command needed — every time a member gains or loses a ship role or the Belly Rush role (button, `!ship-captain`, `!ship-addpermanent`, or a manual role change), so the list always reflects reality.
+
+> 🔓 **Belly Rush category unlock instructions (edit-in-place):**
+> `!post-unlock-info` — posts the unlock steps card in `belly_rush_unlock_channel` *(Admin, needs `!setconfig belly_rush_unlock_channel <channel>` first)*
+> Run it again any time to edit the same message — it never duplicates.
 ```
 ---
 
@@ -458,6 +462,10 @@ Hydra - @Nami @Sanji
 > `!post-shipless-list` — постван веднъж в `shipless_list_channel` *(Админ, нужен е първо `!setconfig shipless_list_channel <channel>`)*
 > Задай `!setconfig belly_rush_role <role>`, за да се показват само хора, които реално играят Belly Rush — иначе излиза всеки член без кораб, включително хора, които изобщо не участват.
 > След това се обновява **автоматично** — без команда — всеки път когато член получи или загуби ship роля или Belly Rush ролята (бутон, `!ship-captain`, `!ship-addpermanent`, или ръчна промяна на роля), така че списъкът винаги отразява реалността.
+
+> 🔓 **Инструкции за отключване на Belly Rush категорията (редактира се на място):**
+> `!post-unlock-info` — праща картата с инструкции в `belly_rush_unlock_channel` *(Админ, нужен е първо `!setconfig belly_rush_unlock_channel <channel>`)*
+> Пускаш командата пак по всяко време, за да редактираш същото съобщение — никога не се дублира.
 ```
 ---
 

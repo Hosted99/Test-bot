@@ -489,6 +489,30 @@ client.on("messageCreate", async (msg) => {
             return;
         }
 
+        if (cmd === "!post-unlock-info") {
+            // ✅ Постоянни инструкции в belly_rush_unlock_channel — постват се веднъж, после само се edit-ват
+            if (!msg.member.permissions.has('Administrator')) {
+                return msg.reply("❌ Only administrators can post channel instructions.");
+            }
+            try { await msg.delete(); } catch (err) {}
+            try {
+                const { refreshUnlockInstructions } = require('./utilities/categoryUnlock.js');
+                const result = await refreshUnlockInstructions(msg.guild);
+                if (!result) {
+                    const warn = await msg.channel.send("❌ `belly_rush_unlock_channel` is not configured. Use `!setconfig belly_rush_unlock_channel <channel>` first.");
+                    setTimeout(() => warn.delete().catch(() => {}), 5000);
+                    return;
+                }
+                const confirm = await msg.channel.send(`✅ Instructions posted/updated in ${result.channel}.`);
+                setTimeout(() => confirm.delete().catch(() => {}), 3000);
+            } catch (err) {
+                console.error('[CategoryUnlock] !post-unlock-info error:', err);
+                const warn = await msg.channel.send(`❌ Error posting instructions: \`${err.message}\``);
+                setTimeout(() => warn.delete().catch(() => {}), 5000);
+            }
+            return;
+        }
+
         if (cmd === "!post-roles-info") {
             // ✅ Постоянни инструкции в belly_rush_roles_channel — постват се веднъж, после само се edit-ват
             if (!msg.member.permissions.has('Administrator')) {
@@ -746,6 +770,7 @@ client.on("messageCreate", async (msg) => {
                 { key: "belly_rush_roles_channel",  desc: "Ship commands only (!want, !ship-captain, etc.)", type: "channel" },
                 { key: "shipless_list_channel",     desc: "Auto-updating list of members without a ship", type: "channel" },
                 { key: "belly_rush_role",           desc: "Only show these members in the shipless list", type: "role" },
+                { key: "belly_rush_unlock_channel", desc: "Category unlock instructions", type: "channel" },
                 { key: "reminders_channel",         desc: "Reminders notifications",     type: "channel" },
                 { key: "repair_channel",            desc: "Repair-ship deck",            type: "channel" },
                 { key: "translator_channel",        desc: "AI Translator room",          type: "channel" },

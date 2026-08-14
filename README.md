@@ -34,6 +34,7 @@ Settings → Advanced → Developer Mode → right-click channel/role → **Copy
 !setconfig bday_channel             <id>  ← birthday channel (optional)
 !setconfig bday_user                <id>  ← birthday user ID (optional)
 !setconfig blacklist_channel        <id>  ← channel for the live Belly Rush blacklist embed (optional)
+!setconfig shipless_list_channel    <id>  ← channel for the auto-updating list of members without a ship (optional)
 ```
 
 **3. Check what's missing:**
@@ -148,7 +149,8 @@ Hydra - @Nami @Sanji
 
 > 📋 **Shipless member list (auto-updating, edit-in-place):**
 > `!post-shipless-list` — posts the list once in `shipless_list_channel` *(Admin, needs `!setconfig shipless_list_channel <channel>` first)*
-> After that it updates **automatically** — no command needed — every time a member gains or loses a ship role (button, `!ship-captain`, `!ship-addpermanent`, or a manual role change), so the list always reflects reality.
+> Set `!setconfig belly_rush_role <role>` to only show members who actually play Belly Rush — otherwise every member without a ship shows up, including people who don't participate at all.
+> After that it updates **automatically** — no command needed — every time a member gains or loses a ship role or the Belly Rush role (button, `!ship-captain`, `!ship-addpermanent`, or a manual role change), so the list always reflects reality.
 ```
 ---
 
@@ -340,6 +342,7 @@ Settings → Advanced → Developer Mode → десен клик на канал
 !setconfig bday_channel             <id>  ← канал за birthday (опционален)
 !setconfig bday_user                <id>  ← user ID за birthday (опционален)
 !setconfig blacklist_channel        <id>  ← канал за живото blacklist embed (опционален)
+!setconfig shipless_list_channel    <id>  ← канал за авто-обновяващия се списък с членове без кораб (опционален)
 ```
 
 **3. Провери какво липсва:**
@@ -453,7 +456,8 @@ Hydra - @Nami @Sanji
 
 > 📋 **Списък с членове без кораб (авто-обновяващ се, редактира се на място):**
 > `!post-shipless-list` — постван веднъж в `shipless_list_channel` *(Админ, нужен е първо `!setconfig shipless_list_channel <channel>`)*
-> След това се обновява **автоматично** — без команда — всеки път когато член получи или загуби ship роля (бутон, `!ship-captain`, `!ship-addpermanent`, или ръчна промяна на роля), така че списъкът винаги отразява реалността.
+> Задай `!setconfig belly_rush_role <role>`, за да се показват само хора, които реално играят Belly Rush — иначе излиза всеки член без кораб, включително хора, които изобщо не участват.
+> След това се обновява **автоматично** — без команда — всеки път когато член получи или загуби ship роля или Belly Rush ролята (бутон, `!ship-captain`, `!ship-addpermanent`, или ръчна промяна на роля), така че списъкът винаги отразява реалността.
 ```
 ---
 

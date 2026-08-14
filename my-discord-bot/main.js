@@ -22,7 +22,7 @@ const memeSystem = require('./utilities/meme.js');
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 const translationCooldown = new Set();
 
-// Изчистване на съдържанието на съобщението от линкове, емоджита и специални символи.
+// Изчистване на съдържанието на съобщението от линкове, емоджита и специални символи
 function cleanDiscordContent(content) {
     if (!content) return "";
     const cleaned = content
@@ -201,14 +201,17 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
         }
 
         const { getShips } = require('./utilities/ship.js');
+        const { getRole } = require('./utilities/guildConfig.js');
         const ships = await getShips(newMember.guild.id);
         const shipRoleIds = ships.map(s => s.role_id).filter(Boolean);
-        if (shipRoleIds.length === 0) return;
+        const bellyRushRole = await getRole(newMember.guild, 'belly_rush_role');
+        const watchedRoleIds = bellyRushRole ? [...shipRoleIds, bellyRushRole.id] : shipRoleIds;
+        if (watchedRoleIds.length === 0) return;
 
-        const changedShipRole = shipRoleIds.some(roleId =>
+        const changedWatchedRole = watchedRoleIds.some(roleId =>
             oldMember.roles.cache.has(roleId) !== newMember.roles.cache.has(roleId)
         );
-        if (!changedShipRole) return;
+        if (!changedWatchedRole) return;
 
         const { refreshShiplessList } = require('./utilities/shiplessList.js');
         await refreshShiplessList(newMember.guild);
@@ -742,6 +745,7 @@ client.on("messageCreate", async (msg) => {
                 { key: "belly_rush_channel",        desc: "Belly Rush panel",            type: "channel" },
                 { key: "belly_rush_roles_channel",  desc: "Ship commands only (!want, !ship-captain, etc.)", type: "channel" },
                 { key: "shipless_list_channel",     desc: "Auto-updating list of members without a ship", type: "channel" },
+                { key: "belly_rush_role",           desc: "Only show these members in the shipless list", type: "role" },
                 { key: "reminders_channel",         desc: "Reminders notifications",     type: "channel" },
                 { key: "repair_channel",            desc: "Repair-ship deck",            type: "channel" },
                 { key: "translator_channel",        desc: "AI Translator room",          type: "channel" },

@@ -8,11 +8,12 @@
  *        other server, rebuilt with plain Discord embeds (text bars, not a
  *        rendered image — see NOTE at the bottom of this file).
  *
- *   2. !shipstatus-image [title]  (with an image attached to the message)
- *      → sends the screenshot to a vision-capable AI model, asks it to read
- *        off unit names/percentages/labels, then shows YOU a preview with
- *        Confirm/Cancel buttons before touching the real embed. Nothing is
- *        posted/edited automatically — a human always approves it, because
+ *   2. !shipstatus-image [title]  (with one or more images attached to the message)
+ *      → sends the screenshot(s) to a vision-capable AI model, asks it to read
+ *        off unit names/percentages/labels (merging units across all attached
+ *        images into one list if you send several), then shows YOU a preview
+ *        with Confirm/Cancel buttons before touching the real embed. Nothing
+ *        is posted/edited automatically — a human always approves it, because
  *        AI reading of small game-UI text can misfire.
  *
  *   Optional: !setconfig ship_status_channel <channel-id>
@@ -194,26 +195,41 @@ async function postOrUpdateShipStatus(guild, channel, data) {
 
 // ─────────────────────────────────────────────
 // AI image reading — Groq vision model → strict JSON
+// Приема МАСИВ от image URL-и (една или повече прикачени снимки, всичките
+// части от статуса на един и същ кораб) и ги праща накуп в едно извикване,
+// за да може AI-то да ги съчетае в един общ списък units.
 // ─────────────────────────────────────────────
-async function readShipStatusFromImage(imageUrl, titleHint) {
-    const imgRes = await axios.get(imageUrl, { responseType: 'arraybuffer' });
-    const base64 = Buffer.from(imgRes.data).toString('base64');
-    const contentType = imgRes.headers['content-type'] || 'image/png';
-    const dataUrl = `data:${contentType};base64,${base64}`;
+async function readShipStatusFromImage(imageUrls, titleHint) {
+    const urls = Array.isArray(imageUrls) ? imageUrls : [imageUrls];
 
-    const systemPrompt = `You read screenshots of a game's ship crew status panel (health/fatigue bars per crew member).
+    const imageContentBlocks = await Promise.all(urls.map(async (url) => {
+        const imgRes = await axios.get(url, { responseType: 'arraybuffer' });
+        const base64 = Buffer.from(imgRes.data).toString('base64');
+        const contentType = imgRes.headers['content-type'] || 'image/png';
+        return { type: 'image_url', image_url: { url: `data:${contentType};base64,${base64}` } };
+    }));
+
+    const systemPrompt = `You read one or more screenshots of a game's ship crew status panel (health/fatigue bars per crew member). ${urls.length > 1 ? `You will receive ${urls.length} screenshots — treat them as parts of the SAME ship's crew status (e.g. different scroll positions), not separate ships. Combine every unit you see across all images into ONE unified list. If the same unit name appears in more than one image, include it only once.` : ''}
 Return ONLY a strict JSON object, no markdown, no commentary, matching exactly:
 {"title": "string or null", "units": [{"name": "string", "percent": number (0-100), "label": "string or null"}]}
 Rules:
-- One entry per visible crew member/unit name.
+- One entry per visible crew member/unit name, across ALL provided images combined.
 - "percent" is the health/HP percentage shown for that unit (0 if it shows a disabled/blocked icon with no bar).
-- If there is extra text under a name like a fatigue penalty (e.g. "Team 3 Fatigue -30%"), put it in "label", otherwise null.
+- Each unit usually has three small tabs/buttons labeled "Team 1", "Team 2", "Team 3" — exactly one of
+  them is visually highlighted/selected (brighter fill / different color than the other two, which look
+  greyed-out or dimmed). Identify which one (1, 2, or 3) is highlighted for that unit.
+- Below the name there may also be a separate fatigue bar or fatigue percentage (often a colored bar
+  distinct from the HP bar, or text like "Fatigue -30%"). Read that value if visible.
+- Combine both into "label" using EXACTLY this format when you have them: "Team <N> Fatigue -<X>%"
+  (e.g. "Team 2 Fatigue -30%"). If only the team tab is visible with no fatigue value, use "Team <N>".
+  If only a fatigue value is visible with no clear team tab, use "Fatigue -<X>%". If neither is visible,
+  set "label" to null. Never guess numbers you cannot actually read.
 - If you cannot confidently read a title for the panel, set "title" to null.
-- Never invent units that are not visibly in the image.`;
+- Never invent units that are not visibly in any of the images.`;
 
     const response = await groq.chat.completions.create({
         model: VISION_MODEL,
-        max_tokens: 1500,
+        max_tokens: 2500,
         temperature: 0,
         // qwen/qwen3.6-27b е reasoning модел — "none" изключва <think> разсъжденията,
         // същото решение като в translate.js за flag-reaction/auto-translate.
@@ -226,8 +242,13 @@ Rules:
             {
                 role: 'user',
                 content: [
-                    { type: 'text', text: 'Read this ship status screenshot and return the JSON described.' },
-                    { type: 'image_url', image_url: { url: dataUrl } }
+                    {
+                        type: 'text',
+                        text: urls.length > 1
+                            ? `Read these ${urls.length} ship status screenshots (same ship) and return the combined JSON described.`
+                            : 'Read this ship status screenshot and return the JSON described.'
+                    },
+                    ...imageContentBlocks
                 ]
             }
         ]
@@ -249,18 +270,27 @@ Rules:
     const parsed = JSON.parse(raw); // ако това хвърли грешка, я хващаме извън функцията
 
     if (!Array.isArray(parsed.units) || parsed.units.length === 0) {
-        throw new Error('AI не разчете нито един unit от снимката.');
+        throw new Error(`AI не разчете нито един unit от ${urls.length > 1 ? 'снимките' : 'снимката'}.`);
     }
 
+    // Премахваме евентуални дубликати по име (case-insensitive), ако AI-то все пак
+    // повтори unit от няколко снимки — пазим първото срещане
+    const seenNames = new Set();
     const units = parsed.units
         .map(u => ({
             name: String(u.name || '').trim(),
             percent: Math.max(0, Math.min(100, Number(u.percent) || 0)),
             label: u.label ? String(u.label).trim() : null
         }))
-        .filter(u => u.name.length > 0);
+        .filter(u => {
+            if (u.name.length === 0) return false;
+            const key = u.name.toLowerCase();
+            if (seenNames.has(key)) return false;
+            seenNames.add(key);
+            return true;
+        });
 
-    if (units.length === 0) throw new Error('AI не разчете нито един валиден unit от снимката.');
+    if (units.length === 0) throw new Error(`AI не разчете нито един валиден unit от ${urls.length > 1 ? 'снимките' : 'снимката'}.`);
 
     return {
         title: (titleHint || parsed.title || 'Ship').toString().trim(),
@@ -295,18 +325,27 @@ async function handleShipStatusMessage(msg) {
         return true;
     }
 
-    // ── !shipstatus-image [title] + attached screenshot ──
+    // ── !shipstatus-image [title] + 1 or more attached screenshots ──
     if (content.toLowerCase().startsWith('!shipstatus-image')) {
-        const attachment = msg.attachments.find(a => (a.contentType || '').startsWith('image/'));
-        if (!attachment) {
-            await msg.reply('❌ Attach a screenshot to the message when using `!shipstatus-image [title]`.');
+        const imageAttachments = [...msg.attachments.values()].filter(a => (a.contentType || '').startsWith('image/'));
+        if (imageAttachments.length === 0) {
+            await msg.reply('❌ Attach one or more screenshots to the message when using `!shipstatus-image [title]`.');
+            return true;
+        }
+        if (imageAttachments.length > 8) {
+            await msg.reply('❌ Too many screenshots at once (max 8). Split into a couple of `!shipstatus-image` messages.');
             return true;
         }
         const titleHint = content.slice('!shipstatus-image'.length).trim() || null;
+        const imageUrls = imageAttachments.map(a => a.url);
 
-        const loadingMsg = await msg.reply('🔎 Reading the screenshot with AI, one moment...');
+        const loadingMsg = await msg.reply(
+            imageUrls.length > 1
+                ? `🔎 Reading ${imageUrls.length} screenshots with AI, one moment...`
+                : '🔎 Reading the screenshot with AI, one moment...'
+        );
         try {
-            const data = await readShipStatusFromImage(attachment.url, titleHint);
+            const data = await readShipStatusFromImage(imageUrls, titleHint);
             const targetChannel = await resolveTargetChannel(msg.guild, msg.channel);
             const token = `${msg.id}`;
             rememberPending(token, {

@@ -9,18 +9,15 @@
  *        rendered image — see NOTE at the bottom of this file).
  *
  *   2. !shipstatus-image [title]  (with one or more images attached to the message)
- *      → sends the screenshot(s) to a vision-capable AI model, asks it to read
+ *      → sends the screenshot(s) to Gemini (vision-capable AI), asks it to read
  *        off unit names/percentages/labels (merging units across all attached
  *        images into one list if you send several), then shows YOU a preview
  *        with Confirm/Cancel buttons before touching the real embed. Nothing
  *        is posted/edited automatically — a human always approves it, because
  *        AI reading of small game-UI text can misfire.
- *        NOTE: Groq's TPM (tokens-per-minute) limit on lower tiers gets hit
- *        fast with full-size screenshots, so this file (a) asks Discord to
- *        serve a smaller resolution via its CDN before sending to AI, and
- *        (b) sends at most 1 image per AI call, auto-splitting into extra
- *        batches and merging results if you attach more — you don't need to
- *        think about either limit.
+ *        REQUIRES: a GEMINI_API_KEY environment variable (Google AI Studio key).
+ *        Images are also downscaled via Discord's CDN before sending, to keep
+ *        upload size/latency down — see toResizedDiscordUrl() below.
  *
  *   Optional: !setconfig ship_status_channel <channel-id>
  *      → if set, BOTH commands above always post/update in that channel,
@@ -40,17 +37,14 @@
  */
 
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const Groq = require('groq-sdk');
 const axios = require('axios');
 const { getConfig, setConfig, getChannel } = require('./guildConfig');
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
-// Groq's current vision-capable model (as of Aug 2026). NOTE: llama-4-scout was
-// decommissioned by Groq — same issue you hit with the translator earlier.
-// qwen/qwen3.6-27b is listed by Groq as a "preview" vision model, so if Groq
-// swaps it again later, this is the one constant to update.
-const VISION_MODEL = 'qwen/qwen3.6-27b';
+// Gemini vision model (REST call via axios, no extra npm dependency needed).
+// NOTE: gemini-2.5-pro is being retired by Google on 2026-10-16 — do NOT switch
+// to that one. gemini-3.6-flash is the current GA Flash-tier model as of Aug 2026.
+const VISION_MODEL = 'gemini-3.6-flash';
+const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${VISION_MODEL}:generateContent`;
 
 // ─────────────────────────────────────────────
 // Pending AI previews waiting for Confirm/Cancel (in-memory, short-lived)
@@ -213,21 +207,21 @@ function toResizedDiscordUrl(attachment, maxWidth = 1400) {
 }
 
 // ─────────────────────────────────────────────
-// Едно AI извикване, МАКСИМУМ 1 снимка наведнъж. Качихме резолюцията (1400px
-// ширина вместо 900px) за да се чете добре малката fatigue иконка, затова
-// свалихме batch-а на 1 — по-висока резолюция на снимка = повече токени, а
-// искаме солиден марж под token-per-minute лимита на акаунта (8000 TPM на
-// on_demand tier). За повече от 1 снимка виж readShipStatusFromImages()
-// по-долу, която прави отделно извикване за всяка и merge-ва резултатите.
+// Едно AI извикване. Gemini НЯМА твърдия лимит "макс 3 снимки" на Groq, така
+// че можем да пращаме до MAX_IMAGES_PER_AI_CALL накуп в едно извикване.
 // ─────────────────────────────────────────────
 async function readShipStatusBatch(imageUrls, titleHint) {
     const urls = imageUrls;
 
-    const imageContentBlocks = await Promise.all(urls.map(async (url) => {
+    if (!process.env.GEMINI_API_KEY) {
+        throw new Error('GEMINI_API_KEY липсва в environment variables.');
+    }
+
+    const imageParts = await Promise.all(urls.map(async (url) => {
         const imgRes = await axios.get(url, { responseType: 'arraybuffer' });
         const base64 = Buffer.from(imgRes.data).toString('base64');
-        const contentType = imgRes.headers['content-type'] || 'image/png';
-        return { type: 'image_url', image_url: { url: `data:${contentType};base64,${base64}` } };
+        const mimeType = imgRes.headers['content-type'] || 'image/png';
+        return { inlineData: { mimeType, data: base64 } };
     }));
 
     const systemPrompt = `You read one or more screenshots of a game's ship crew status panel (health/fatigue bars per crew member). ${urls.length > 1 ? `You will receive ${urls.length} screenshots — treat them as parts of the SAME ship's crew status (e.g. different scroll positions), not separate ships. Combine every unit you see across all images into ONE unified list. If the same unit name appears in more than one image, include it only once.` : ''}
@@ -243,13 +237,13 @@ Rules:
 - For units with percent > 0 only: they usually have three small tabs/buttons labeled "Team 1", "Team 2",
   "Team 3" — exactly one of them is visually highlighted/selected (brighter fill / different color than
   the other two, which look greyed-out or dimmed). Identify which one (1, 2, or 3) is highlighted.
-- Also for units with percent > 0: look for a small icon showing a bent-over/exhausted person figure,
-  usually paired with a small number (1, 2, 3, 4...). This icon is often quite small — look carefully near
-  the unit's portrait/name/level area, not just at the main HP bar. This is the fatigue indicator — EACH
-  number of stack equals exactly -10% fatigue (icon+"1" = -10%, icon+"2" = -20%, icon+"3" = -30%, etc.).
-  Multiply the number you see by 10 to get the fatigue percentage. Only report this if you can actually
-  see that icon with a number next to it — do not estimate fatigue from any bar fill level, and never
-  guess a number.
+- Also for units with percent > 0: look very closely for a small icon showing a bent-over/exhausted person
+  figure, usually paired with a small number (1, 2, 3, 4...). This icon is often quite small — zoom your
+  attention near the unit's portrait/name/level area, not just at the main HP bar. This is the fatigue
+  indicator — EACH number of stack equals exactly -10% fatigue (icon+"1" = -10%, icon+"2" = -20%,
+  icon+"3" = -30%, etc.). Multiply the number you see by 10 to get the fatigue percentage. Only report
+  this if you can actually see that icon with a number next to it — do not estimate fatigue from any bar
+  fill level, and never guess a number.
 - For units with percent > 0, combine both into "label" using EXACTLY this format when you have them:
   "Team <N> Fatigue -<X>%" (e.g. "Team 2 Fatigue -30%", where -30% came from a fatigue icon showing "3").
   If only the team tab is visible with no fatigue icon, use "Team <N>". If only a fatigue icon is visible
@@ -257,40 +251,33 @@ Rules:
 - If you cannot confidently read a title for the panel, set "title" to null.
 - Never invent units that are not visibly in any of the images.`;
 
-    const response = await groq.chat.completions.create({
-        model: VISION_MODEL,
-        max_tokens: 1500,
-        temperature: 0,
-        // qwen/qwen3.6-27b е reasoning модел — "none" изключва <think> разсъжденията,
-        // същото решение като в translate.js за flag-reaction/auto-translate.
-        // ВАЖНО: НЕ комбинирай с response_format:"json_object" — Groq прилага
-        // grammar-constrained decoding, което се чупи от reasoning токените и
-        // връща 400 "Failed to validate JSON" с празен failed_generation.
-        reasoning_effort: 'none',
-        messages: [
-            { role: 'system', content: systemPrompt },
-            {
-                role: 'user',
-                content: [
-                    {
-                        type: 'text',
-                        text: urls.length > 1
-                            ? `Read these ${urls.length} ship status screenshots (same ship) and return the combined JSON described.`
-                            : 'Read this ship status screenshot and return the JSON described.'
-                    },
-                    ...imageContentBlocks
-                ]
+    const userInstruction = urls.length > 1
+        ? `Read these ${urls.length} ship status screenshots (same ship) and return the combined JSON described.`
+        : 'Read this ship status screenshot and return the JSON described.';
+
+    const response = await axios.post(
+        `${GEMINI_ENDPOINT}?key=${process.env.GEMINI_API_KEY}`,
+        {
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            contents: [
+                { role: 'user', parts: [{ text: userInstruction }, ...imageParts] }
+            ],
+            generationConfig: {
+                temperature: 0,
+                maxOutputTokens: 1500,
+                responseMimeType: 'application/json' // изчисто JSON, без markdown/reasoning шум
             }
-        ]
-    });
+        },
+        { headers: { 'Content-Type': 'application/json' } }
+    );
 
-    let raw = response.choices[0]?.message?.content || '';
-    // qwen/qwen3.6-27b е reasoning модел — по подразбиране пише <think>...</think>
-    // разсъждения преди истинския отговор. Махаме ги, после markdown fences, ако има.
-    raw = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+    let raw = (response.data?.candidates?.[0]?.content?.parts || [])
+        .map(p => p.text || '')
+        .join('')
+        .trim();
+
+    // Защитно чистене в случай, че моделът все пак добави markdown fences или текст извън JSON-а
     raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim();
-
-    // Ако след чистенето остане текст преди/след JSON-а, изрязваме до първата { и последната }
     const firstBrace = raw.indexOf('{');
     const lastBrace = raw.lastIndexOf('}');
     if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
@@ -335,10 +322,12 @@ Rules:
 
 // ─────────────────────────────────────────────
 // Публичната функция, викана от команд handler-а. Приема произволен брой
-// снимки (капнати на 8 по-долу), прави отделно AI извикване за всяка (виж
-// MAX_IMAGES_PER_AI_CALL по-горе) и merge-ва units-ите от всички в един списък.
+// снимки (капнати на 8 по-долу). Gemini няма твърдия лимит "макс 3 снимки" на
+// Groq, затова MAX_IMAGES_PER_AI_CALL е достатъчно висок, че на практика
+// винаги да е 1 извикване — но ако някой ден трябва пак да се намали заради
+// rate limits на Gemini акаунта, само тук се пипа.
 // ─────────────────────────────────────────────
-const MAX_IMAGES_PER_AI_CALL = 1;
+const MAX_IMAGES_PER_AI_CALL = 8;
 
 async function readShipStatusFromImages(imageUrls, titleHint) {
     const urls = Array.isArray(imageUrls) ? imageUrls : [imageUrls];

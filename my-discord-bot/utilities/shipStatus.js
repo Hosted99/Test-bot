@@ -15,6 +15,11 @@
  *        posted/edited automatically — a human always approves it, because
  *        AI reading of small game-UI text can misfire.
  *
+ *   Optional: !setconfig ship_status_channel <channel-id>
+ *      → if set, BOTH commands above always post/update in that channel,
+ *        no matter which channel the command was typed in. If not set,
+ *        they fall back to whatever channel the command was used in.
+ *
  * HOW TO REMOVE THIS FEATURE COMPLETELY:
  *   1. Delete this file (utilities/shipStatus.js).
  *   2. In main.js, remove the 3 lines tagged "// [ShipStatus]".
@@ -30,7 +35,7 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const Groq = require('groq-sdk');
 const axios = require('axios');
-const { getConfig, setConfig } = require('./guildConfig');
+const { getConfig, setConfig, getChannel } = require('./guildConfig');
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -106,6 +111,15 @@ function parseShipStatusText(raw) {
 
 function shipKeyFromTitle(title) {
     return title.toLowerCase().trim().replace(/[^a-z0-9а-я]+/gi, '_').slice(0, 60);
+}
+
+// ─────────────────────────────────────────────
+// Ако е зададен `ship_status_channel`, статусите ВИНАГИ отиват там —
+// независимо откъде е пусната командата. Иначе — fallback на текущия канал.
+// ─────────────────────────────────────────────
+async function resolveTargetChannel(guild, fallbackChannel) {
+    const configured = await getChannel(guild, 'ship_status_channel');
+    return configured || fallbackChannel;
 }
 
 // ─────────────────────────────────────────────
@@ -275,15 +289,17 @@ async function handleShipStatusMessage(msg) {
         const loadingMsg = await msg.reply('🔎 Reading the screenshot with AI, one moment...');
         try {
             const data = await readShipStatusFromImage(attachment.url, titleHint);
+            const targetChannel = await resolveTargetChannel(msg.guild, msg.channel);
             const token = `${msg.id}`;
             rememberPending(token, {
                 guildId: msg.guild.id,
-                channelId: msg.channel.id,
+                channelId: targetChannel.id,
                 requesterId: msg.author.id,
                 data
             });
+            const destNote = targetChannel.id !== msg.channel.id ? ` (will be posted in ${targetChannel} on confirm)` : '';
             await loadingMsg.edit({
-                content: `Here's what I read from the image for **${data.title}** — check it before confirming:`,
+                content: `Here's what I read from the image for **${data.title}**${destNote} — check it before confirming:`,
                 embeds: [buildPreviewEmbed(data)],
                 components: [buildPreviewRow(token)]
             });
@@ -306,8 +322,15 @@ async function handleShipStatusMessage(msg) {
     }
 
     try {
-        await postOrUpdateShipStatus(msg.guild, msg.channel, data);
+        const targetChannel = await resolveTargetChannel(msg.guild, msg.channel);
+        await postOrUpdateShipStatus(msg.guild, targetChannel, data);
         await msg.delete().catch(() => {});
+
+        // Ако статусът отива в друг канал от този, в който е писана командата — кратко потвърждение тук
+        if (targetChannel.id !== msg.channel.id) {
+            const note = await msg.channel.send(`✅ Ship status for **${data.title}** posted/updated in ${targetChannel}.`);
+            setTimeout(() => note.delete().catch(() => {}), 4000);
+        }
     } catch (err) {
         console.error('[ShipStatus] manual update error:', err.message);
         await msg.reply(`❌ Error updating ship status: \`${err.message}\``);

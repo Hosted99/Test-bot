@@ -15,9 +15,12 @@
  *        with Confirm/Cancel buttons before touching the real embed. Nothing
  *        is posted/edited automatically — a human always approves it, because
  *        AI reading of small game-UI text can misfire.
- *        NOTE: Groq caps this model at 3 images per API call, so if you attach
- *        more than 3, this file automatically splits them into batches of 3
- *        and merges the results — you don't need to think about the limit.
+ *        NOTE: Groq's TPM (tokens-per-minute) limit on lower tiers gets hit
+ *        fast with full-size screenshots, so this file (a) asks Discord to
+ *        serve a smaller resolution via its CDN before sending to AI, and
+ *        (b) sends at most 2 images per AI call, auto-splitting into extra
+ *        batches and merging results if you attach more — you don't need to
+ *        think about either limit.
  *
  *   Optional: !setconfig ship_status_channel <channel-id>
  *      → if set, BOTH commands above always post/update in that channel,
@@ -197,9 +200,24 @@ async function postOrUpdateShipStatus(guild, channel, data) {
 }
 
 // ─────────────────────────────────────────────
-// Едно AI извикване, МАКСИМУМ 3 снимки (твърд лимит на Groq за този модел —
-// над 3 връща 400 "Too many images provided"). За повече от 3 виж
-// readShipStatusFromImages() по-долу, която разбива на групи от по 3.
+// Discord's media proxy (proxyURL, media.discordapp.net) поддържа on-the-fly
+// resize през ?width= — режем размера на снимката ПРЕДИ да я пратим на AI,
+// защото vision токените растат с резолюцията. Пълноразмерни game screenshots
+// лесно надвишават TPM лимита на акаунта (виж грешката "Request too large").
+// Никакви нови dependencies — просто друг URL за същия файл.
+// ─────────────────────────────────────────────
+function toResizedDiscordUrl(attachment, maxWidth = 900) {
+    const base = attachment.proxyURL || attachment.url;
+    const sep = base.includes('?') ? '&' : '?';
+    return `${base}${sep}width=${maxWidth}`;
+}
+
+// ─────────────────────────────────────────────
+// Едно AI извикване, МАКСИМУМ 2 снимки наведнъж. Groq-ският твърд лимит е 3,
+// но с намалено на 2 оставяме солиден марж под token-per-minute лимита на
+// акаунта (8000 TPM на on_demand tier), дори с resize-натите снимки.
+// За повече от 2 виж readShipStatusFromImages() по-долу, която ги разбива на
+// групи от по 2.
 // ─────────────────────────────────────────────
 async function readShipStatusBatch(imageUrls, titleHint) {
     const urls = imageUrls;
@@ -231,7 +249,7 @@ Rules:
 
     const response = await groq.chat.completions.create({
         model: VISION_MODEL,
-        max_tokens: 2500,
+        max_tokens: 1500,
         temperature: 0,
         // qwen/qwen3.6-27b е reasoning модел — "none" изключва <think> разсъжденията,
         // същото решение като в translate.js за flag-reaction/auto-translate.
@@ -305,7 +323,7 @@ Rules:
 // снимки (капнати на 8 по-долу), разбива ги на групи от по 3 (лимитът на
 // Groq за този модел) и merge-ва units-ите от всяка група в един списък.
 // ─────────────────────────────────────────────
-const MAX_IMAGES_PER_AI_CALL = 3;
+const MAX_IMAGES_PER_AI_CALL = 2;
 
 async function readShipStatusFromImages(imageUrls, titleHint) {
     const urls = Array.isArray(imageUrls) ? imageUrls : [imageUrls];
@@ -378,7 +396,7 @@ async function handleShipStatusMessage(msg) {
             return true;
         }
         const titleHint = content.slice('!shipstatus-image'.length).trim() || null;
-        const imageUrls = imageAttachments.map(a => a.url);
+        const imageUrls = imageAttachments.map(a => toResizedDiscordUrl(a));
         const numBatches = Math.ceil(imageUrls.length / MAX_IMAGES_PER_AI_CALL);
 
         const loadingMsg = await msg.reply(

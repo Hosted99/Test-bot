@@ -168,10 +168,10 @@ Post a crew-status board for a ship — either manually or by letting AI read it
 ```
 
 ```
-!shipstatus-image [title]   ← attach a screenshot of the crew status
+!shipstatus-image [title]   ← attach 1-8 screenshots of the crew status
 ```
 
-> 💡 `!shipstatus-image` sends the screenshot to AI, then shows you a **preview with ✅ Confirm / ❌ Cancel buttons** — nothing is posted or overwritten until a Mod/Admin confirms it. If the AI misreads a name or a percentage, just hit Cancel and try `!shipstatus` manually or a clearer screenshot.
+> 💡 `!shipstatus-image` sends the screenshot(s) to AI — attach more than one if the crew doesn't fit in a single screenshot, and it merges every unit into one combined list — then shows you a **preview with ✅ Confirm / ❌ Cancel buttons** — nothing is posted or overwritten until a Mod/Admin confirms it. If the AI misreads a name or a percentage, just hit Cancel and try `!shipstatus` manually or clearer screenshots.
 > 🔒 Both commands require Mod/Admin (same as the other ship-admin commands, `mod_role` or Administrator).
 > ⚙️ Bars are rendered as text (`█████░░░░░`) inside a normal embed — not a graphic image — so it needs no extra setup and always works on Railway.
 > 📍 By default the status is posted in whichever channel you typed the command in. Set `!setconfig ship_status_channel <channel>` to always post/update in **one fixed channel** instead, no matter where the command is used.
@@ -499,10 +499,10 @@ Hydra - @Nami @Sanji
 ```
 
 ```
-!shipstatus-image [title]   ← прикачи скрийншот от статуса на екипажа
+!shipstatus-image [title]   ← прикачи 1-8 скрийншота от статуса на екипажа
 ```
 
-> 💡 `!shipstatus-image` праща скрийншота на AI, после ти показва **preview с ✅ Confirm / ❌ Cancel бутони** — нищо не се поства или презаписва, докато Мод/Админ не потвърди. Ако AI-то сгреши име или процент, просто натисни Cancel и пробвай `!shipstatus` ръчно или по-ясен скрийншот.
+> 💡 `!shipstatus-image` праща скрийншота(ите) на AI — прикачи повече от един, ако екипажът не се събира в един скрийншот, и то ги обединява в един общ списък — после ти показва **preview с ✅ Confirm / ❌ Cancel бутони** — нищо не се поства или презаписва, докато Мод/Админ не потвърди. Ако AI-то сгреши име или процент, просто натисни Cancel и пробвай `!shipstatus` ръчно или по-ясни скрийншоти.
 > 🔒 И двете команди изискват Мод/Админ (както другите ship-admin команди — `mod_role` или Administrator).
 > ⚙️ Баровете се рендират като текст (`█████░░░░░`) в обикновен embed, не като графична картинка — затова не иска допълнителна настройка и винаги работи на Railway.
 > 📍 По подразбиране статусът се постира в канала, в който е писана командата. Задай `!setconfig ship_status_channel <channel>`, за да постира/обновява винаги в **един фиксиран канал**, независимо откъде е пусната командата.

@@ -264,8 +264,30 @@ Rules:
             ],
             generationConfig: {
                 temperature: 0,
-                maxOutputTokens: 1500,
-                responseMimeType: 'application/json' // изчисто JSON, без markdown/reasoning шум
+                maxOutputTokens: 2000,
+                responseMimeType: 'application/json', // изчисто JSON, без markdown/reasoning шум
+                // responseSchema принуждава Gemini да следва ТОЧНО тази структура
+                // (schema-constrained decoding) — много по-надежден начин да не
+                // получиш счупен JSON, отколкото само responseMimeType сам по себе си.
+                responseSchema: {
+                    type: 'OBJECT',
+                    properties: {
+                        title: { type: 'STRING', nullable: true },
+                        units: {
+                            type: 'ARRAY',
+                            items: {
+                                type: 'OBJECT',
+                                properties: {
+                                    name: { type: 'STRING' },
+                                    percent: { type: 'NUMBER' },
+                                    label: { type: 'STRING', nullable: true }
+                                },
+                                required: ['name', 'percent']
+                            }
+                        }
+                    },
+                    required: ['units']
+                }
             }
         },
         { headers: { 'Content-Type': 'application/json' } }
@@ -284,7 +306,13 @@ Rules:
         raw = raw.slice(firstBrace, lastBrace + 1);
     }
 
-    const parsed = JSON.parse(raw); // ако това хвърли грешка, я хващаме извън функцията
+    let parsed;
+    try {
+        parsed = JSON.parse(raw);
+    } catch (err) {
+        const preview = raw.slice(0, 200).replace(/\s+/g, ' ');
+        throw new Error(`Gemini не върна валиден JSON (${err.message}). Начало на отговора: "${preview}..."`);
+    }
 
     if (!Array.isArray(parsed.units) || parsed.units.length === 0) {
         throw new Error(`AI не разчете нито един unit от ${urls.length > 1 ? 'снимките' : 'снимката'}.`);

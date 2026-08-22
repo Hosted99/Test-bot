@@ -41,7 +41,7 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 // Same model family already used for translation in main.js — it's Groq's
 // vision-capable model, so no new API key / dependency is needed.
-const VISION_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';
+const VISION_MODEL = 'qwen/qwen3.6-27b';
 
 // ─────────────────────────────────────────────
 // Pending AI previews waiting for Confirm/Cancel (in-memory, short-lived)

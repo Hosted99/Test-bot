@@ -215,7 +215,12 @@ Rules:
         model: VISION_MODEL,
         max_tokens: 1500,
         temperature: 0,
-        response_format: { type: 'json_object' },
+        // qwen/qwen3.6-27b е reasoning модел — "none" изключва <think> разсъжденията,
+        // същото решение като в translate.js за flag-reaction/auto-translate.
+        // ВАЖНО: НЕ комбинирай с response_format:"json_object" — Groq прилага
+        // grammar-constrained decoding, което се чупи от reasoning токените и
+        // връща 400 "Failed to validate JSON" с празен failed_generation.
+        reasoning_effort: 'none',
         messages: [
             { role: 'system', content: systemPrompt },
             {

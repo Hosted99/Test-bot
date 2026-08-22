@@ -242,13 +242,15 @@ Rules:
 - For units with percent > 0 only: they usually have three small tabs/buttons labeled "Team 1", "Team 2",
   "Team 3" — exactly one of them is visually highlighted/selected (brighter fill / different color than
   the other two, which look greyed-out or dimmed). Identify which one (1, 2, or 3) is highlighted.
-- Also for units with percent > 0: below the name there may be a separate fatigue bar or fatigue
-  percentage (often a colored bar distinct from the HP bar, or text like "Fatigue -30%"). Read that value
-  if visible.
+- Also for units with percent > 0: look for a small icon showing a bent-over/exhausted person figure,
+  usually paired with a small number (1, 2, 3, 4...). This is the fatigue indicator — EACH number of stack
+  equals exactly -10% fatigue (icon+"1" = -10%, icon+"2" = -20%, icon+"3" = -30%, etc.). Multiply the
+  number you see by 10 to get the fatigue percentage. Only report this if you can actually see that icon
+  with a number next to it — do not estimate fatigue from any bar fill level, and never guess a number.
 - For units with percent > 0, combine both into "label" using EXACTLY this format when you have them:
-  "Team <N> Fatigue -<X>%" (e.g. "Team 2 Fatigue -30%"). If only the team tab is visible with no fatigue
-  value, use "Team <N>". If only a fatigue value is visible with no clear team tab, use "Fatigue -<X>%".
-  If neither is visible, set "label" to null. Never guess numbers you cannot actually read.
+  "Team <N> Fatigue -<X>%" (e.g. "Team 2 Fatigue -30%", where -30% came from a fatigue icon showing "3").
+  If only the team tab is visible with no fatigue icon, use "Team <N>". If only a fatigue icon is visible
+  with no clear team tab, use "Fatigue -<X>%". If neither is visible, set "label" to null.
 - If you cannot confidently read a title for the panel, set "title" to null.
 - Never invent units that are not visibly in any of the images.`;
 

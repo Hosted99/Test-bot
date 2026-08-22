@@ -235,15 +235,20 @@ Return ONLY a strict JSON object, no markdown, no commentary, matching exactly:
 Rules:
 - One entry per visible crew member/unit name, across ALL provided images combined.
 - "percent" is the health/HP percentage shown for that unit (0 if it shows a disabled/blocked icon with no bar).
-- Each unit usually has three small tabs/buttons labeled "Team 1", "Team 2", "Team 3" — exactly one of
-  them is visually highlighted/selected (brighter fill / different color than the other two, which look
-  greyed-out or dimmed). Identify which one (1, 2, or 3) is highlighted for that unit.
-- Below the name there may also be a separate fatigue bar or fatigue percentage (often a colored bar
-  distinct from the HP bar, or text like "Fatigue -30%"). Read that value if visible.
-- Combine both into "label" using EXACTLY this format when you have them: "Team <N> Fatigue -<X>%"
-  (e.g. "Team 2 Fatigue -30%"). If only the team tab is visible with no fatigue value, use "Team <N>".
-  If only a fatigue value is visible with no clear team tab, use "Fatigue -<X>%". If neither is visible,
-  set "label" to null. Never guess numbers you cannot actually read.
+- If percent is 0 (the unit shows a disabled/blocked/"no entry" style icon instead of a bar), ALWAYS set
+  "label" to null — do NOT report a team tab or fatigue for it, even if one of the Team 1/2/3 tabs still
+  looks highlighted. That highlight is just a leftover UI default on an inactive unit, not a real
+  assignment, so it must be ignored.
+- For units with percent > 0 only: they usually have three small tabs/buttons labeled "Team 1", "Team 2",
+  "Team 3" — exactly one of them is visually highlighted/selected (brighter fill / different color than
+  the other two, which look greyed-out or dimmed). Identify which one (1, 2, or 3) is highlighted.
+- Also for units with percent > 0: below the name there may be a separate fatigue bar or fatigue
+  percentage (often a colored bar distinct from the HP bar, or text like "Fatigue -30%"). Read that value
+  if visible.
+- For units with percent > 0, combine both into "label" using EXACTLY this format when you have them:
+  "Team <N> Fatigue -<X>%" (e.g. "Team 2 Fatigue -30%"). If only the team tab is visible with no fatigue
+  value, use "Team <N>". If only a fatigue value is visible with no clear team tab, use "Fatigue -<X>%".
+  If neither is visible, set "label" to null. Never guess numbers you cannot actually read.
 - If you cannot confidently read a title for the panel, set "title" to null.
 - Never invent units that are not visibly in any of the images.`;
 
@@ -297,11 +302,16 @@ Rules:
     // повтори unit от няколко снимки — пазим първото срещане
     const seenNames = new Set();
     const units = parsed.units
-        .map(u => ({
-            name: String(u.name || '').trim(),
-            percent: Math.max(0, Math.min(100, Number(u.percent) || 0)),
-            label: u.label ? String(u.label).trim() : null
-        }))
+        .map(u => {
+            const percent = Math.max(0, Math.min(100, Number(u.percent) || 0));
+            return {
+                name: String(u.name || '').trim(),
+                percent,
+                // Code-level guard: 0% units never show a Team/Fatigue label, even if
+                // the AI reports one anyway (leftover UI highlight on inactive units).
+                label: percent > 0 && u.label ? String(u.label).trim() : null
+            };
+        })
         .filter(u => {
             if (u.name.length === 0) return false;
             const key = u.name.toLowerCase();

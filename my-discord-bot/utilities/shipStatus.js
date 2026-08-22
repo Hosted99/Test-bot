@@ -372,7 +372,7 @@ async function handleShipStatusMessage(msg) {
     const data = parseShipStatusText(rest);
     if (!data) {
         await msg.reply(
-            '❌ Format: `/shipstatus title:Embra unit1:EMP Lucky,100 unit2:Jochwirt,92 unit3:Imhotep,33,Team 3 Fatigue -30%`\n' +
+            '❌ Format: `/shipstatus title:Sunny unit1:MUGI,100 unit2:TONi,92 unit3:AKAgami,33,Team 3 Fatigue -30%`\n' +
             'Or attach a screenshot and use `!shipstatus-image [title]` to let AI fill it in for you.'
         );
         return true;

@@ -39,8 +39,10 @@ const { getConfig, setConfig, getChannel } = require('./guildConfig');
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-// Same model family already used for translation in main.js — it's Groq's
-// vision-capable model, so no new API key / dependency is needed.
+// Groq's current vision-capable model (as of Aug 2026). NOTE: llama-4-scout was
+// decommissioned by Groq — same issue you hit with the translator earlier.
+// qwen/qwen3.6-27b is listed by Groq as a "preview" vision model, so if Groq
+// swaps it again later, this is the one constant to update.
 const VISION_MODEL = 'qwen/qwen3.6-27b';
 
 // ─────────────────────────────────────────────
@@ -213,6 +215,7 @@ Rules:
         model: VISION_MODEL,
         max_tokens: 1500,
         temperature: 0,
+        response_format: { type: 'json_object' },
         messages: [
             { role: 'system', content: systemPrompt },
             {
@@ -226,7 +229,17 @@ Rules:
     });
 
     let raw = response.choices[0]?.message?.content || '';
-    raw = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim();
+    // qwen/qwen3.6-27b е reasoning модел — по подразбиране пише <think>...</think>
+    // разсъждения преди истинския отговор. Махаме ги, после markdown fences, ако има.
+    raw = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+    raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim();
+
+    // Ако след чистенето остане текст преди/след JSON-а, изрязваме до първата { и последната }
+    const firstBrace = raw.indexOf('{');
+    const lastBrace = raw.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        raw = raw.slice(firstBrace, lastBrace + 1);
+    }
 
     const parsed = JSON.parse(raw); // ако това хвърли грешка, я хващаме извън функцията
 

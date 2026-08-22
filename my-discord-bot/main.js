@@ -445,6 +445,7 @@ client.on("messageCreate", async (msg) => {
                 "`bday_channel` — channel for birthday messages\n" +
                 "`bday_user` — user ID for birthday tracking\n" +
                 "`blacklist_channel` — channel for the persistent Belly Rush blacklist embed (optional)\n" +
+                "`ship_status_channel` — channel where !shipstatus / !shipstatus-image always posts, regardless of where typed (optional)\n" +
                 "`mania_main_channel` — main channel for Mania notifications (optional)");
             }
             await setConfig(msg.guild.id, key, value, msg.guild.name);
@@ -789,6 +790,7 @@ client.on("messageCreate", async (msg) => {
                 { key: "bday_channel",              desc: "Birthday channel",              type: "channel", optional: true },
                 { key: "bday_user",                 desc: "Birthday tracking user",         type: "text",    optional: true },
                 { key: "blacklist_channel",          desc: "Belly Rush blacklist embed",     type: "channel", optional: true },
+                { key: "ship_status_channel",        desc: "Fixed channel for !shipstatus (optional, else uses current channel)", type: "channel", optional: true },
             ];
 
             const { EmbedBuilder } = require("discord.js");

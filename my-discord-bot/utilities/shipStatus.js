@@ -15,6 +15,9 @@
  *        with Confirm/Cancel buttons before touching the real embed. Nothing
  *        is posted/edited automatically — a human always approves it, because
  *        AI reading of small game-UI text can misfire.
+ *        NOTE: Groq caps this model at 3 images per API call, so if you attach
+ *        more than 3, this file automatically splits them into batches of 3
+ *        and merges the results — you don't need to think about the limit.
  *
  *   Optional: !setconfig ship_status_channel <channel-id>
  *      → if set, BOTH commands above always post/update in that channel,
@@ -194,13 +197,12 @@ async function postOrUpdateShipStatus(guild, channel, data) {
 }
 
 // ─────────────────────────────────────────────
-// AI image reading — Groq vision model → strict JSON
-// Приема МАСИВ от image URL-и (една или повече прикачени снимки, всичките
-// части от статуса на един и същ кораб) и ги праща накуп в едно извикване,
-// за да може AI-то да ги съчетае в един общ списък units.
+// Едно AI извикване, МАКСИМУМ 3 снимки (твърд лимит на Groq за този модел —
+// над 3 връща 400 "Too many images provided"). За повече от 3 виж
+// readShipStatusFromImages() по-долу, която разбива на групи от по 3.
 // ─────────────────────────────────────────────
-async function readShipStatusFromImage(imageUrls, titleHint) {
-    const urls = Array.isArray(imageUrls) ? imageUrls : [imageUrls];
+async function readShipStatusBatch(imageUrls, titleHint) {
+    const urls = imageUrls;
 
     const imageContentBlocks = await Promise.all(urls.map(async (url) => {
         const imgRes = await axios.get(url, { responseType: 'arraybuffer' });
@@ -298,6 +300,45 @@ Rules:
     };
 }
 
+// ─────────────────────────────────────────────
+// Публичната функция, викана от команд handler-а. Приема произволен брой
+// снимки (капнати на 8 по-долу), разбива ги на групи от по 3 (лимитът на
+// Groq за този модел) и merge-ва units-ите от всяка група в един списък.
+// ─────────────────────────────────────────────
+const MAX_IMAGES_PER_AI_CALL = 3;
+
+async function readShipStatusFromImages(imageUrls, titleHint) {
+    const urls = Array.isArray(imageUrls) ? imageUrls : [imageUrls];
+
+    const chunks = [];
+    for (let i = 0; i < urls.length; i += MAX_IMAGES_PER_AI_CALL) {
+        chunks.push(urls.slice(i, i + MAX_IMAGES_PER_AI_CALL));
+    }
+
+    const results = [];
+    for (const chunk of chunks) {
+        results.push(await readShipStatusBatch(chunk, titleHint));
+    }
+
+    if (results.length === 1) return results[0];
+
+    // Merge на units от всички групи, дубликати по име (case-insensitive) — пазим първото срещане
+    const seenNames = new Set();
+    const mergedUnits = [];
+    let title = titleHint || null;
+    for (const r of results) {
+        if (!title && r.title && r.title !== 'Ship') title = r.title;
+        for (const u of r.units) {
+            const key = u.name.toLowerCase();
+            if (seenNames.has(key)) continue;
+            seenNames.add(key);
+            mergedUnits.push(u);
+        }
+    }
+
+    return { title: title || 'Ship', units: mergedUnits };
+}
+
 function buildPreviewEmbed(data) {
     const embed = buildShipStatusEmbed(data);
     embed.setFooter({ text: '⚠️ AI-read preview — press Confirm to post/update, or Cancel to discard.' });
@@ -338,14 +379,17 @@ async function handleShipStatusMessage(msg) {
         }
         const titleHint = content.slice('!shipstatus-image'.length).trim() || null;
         const imageUrls = imageAttachments.map(a => a.url);
+        const numBatches = Math.ceil(imageUrls.length / MAX_IMAGES_PER_AI_CALL);
 
         const loadingMsg = await msg.reply(
-            imageUrls.length > 1
-                ? `🔎 Reading ${imageUrls.length} screenshots with AI, one moment...`
-                : '🔎 Reading the screenshot with AI, one moment...'
+            numBatches > 1
+                ? `🔎 Reading ${imageUrls.length} screenshots with AI (in ${numBatches} batches of up to ${MAX_IMAGES_PER_AI_CALL}), one moment...`
+                : imageUrls.length > 1
+                    ? `🔎 Reading ${imageUrls.length} screenshots with AI, one moment...`
+                    : '🔎 Reading the screenshot with AI, one moment...'
         );
         try {
-            const data = await readShipStatusFromImage(imageUrls, titleHint);
+            const data = await readShipStatusFromImages(imageUrls, titleHint);
             const targetChannel = await resolveTargetChannel(msg.guild, msg.channel);
             const token = `${msg.id}`;
             rememberPending(token, {
@@ -372,7 +416,7 @@ async function handleShipStatusMessage(msg) {
     const data = parseShipStatusText(rest);
     if (!data) {
         await msg.reply(
-            '❌ Format: `/shipstatus title:Sunny unit1:MUGI,100 unit2:TONi,92 unit3:AKAgami,33,Team 3 Fatigue -30%`\n' +
+            '❌ Format: `/shipstatus title:Embra unit1:EMP Lucky,100 unit2:Jochwirt,92 unit3:Imhotep,33,Team 3 Fatigue -30%`\n' +
             'Or attach a screenshot and use `!shipstatus-image [title]` to let AI fill it in for you.'
         );
         return true;

@@ -62,7 +62,7 @@ async function handleCommands(msg, pool) {
                 },
                 {
                     name: "📊 Ship Status (HP/Fatigue)",
-                    value: "• `!shipstatus title:<name> unit1:<name>,<percent>[,<label>] ...` — Post/update a ship's crew status board (Mod/Admin)\n• `!shipstatus-image [title]` + attach a screenshot — AI reads the crew status from the image and shows a Confirm/Cancel preview before posting (Mod/Admin)\n• Set `!setconfig ship_status_channel <channel>` to always post there, regardless of where the command is typed (optional)"
+                    value: "• `!shipstatus title:<name> unit1:<name>,<percent>[,<label>] ...` — Post/update a ship's crew status board (Mod/Admin)\n• `!shipstatus-image [title]` + attach 1-8 screenshots — AI reads and merges the crew status from all of them and shows a Confirm/Cancel preview before posting (Mod/Admin)\n• Set `!setconfig ship_status_channel <channel>` to always post there, regardless of where the command is typed (optional)"
                 },
                 {
                     name: "🏴‍☠️ Belly Rush Blacklist",

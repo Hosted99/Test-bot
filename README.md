@@ -158,6 +158,24 @@ Hydra - @Nami @Sanji
 ```
 ---
 
+### 📊 Ship Status (HP / Fatigue)
+
+Post a crew-status board for a ship — either manually or by letting AI read it off a screenshot. Same **edit-in-place** pattern as everything else: re-run for the same ship and it updates the existing message instead of posting a new one.
+
+```
+!shipstatus title:Embra unit1:EMP Lucky,100 unit2:Jochwirt,92 unit3:Imhotep,33,Team 3 Fatigue -30%
+```
+
+```
+!shipstatus-image [title]   ← attach a screenshot of the crew status
+```
+
+> 💡 `!shipstatus-image` sends the screenshot to AI, then shows you a **preview with ✅ Confirm / ❌ Cancel buttons** — nothing is posted or overwritten until a Mod/Admin confirms it. If the AI misreads a name or a percentage, just hit Cancel and try `!shipstatus` manually or a clearer screenshot.
+> 🔒 Both commands require Mod/Admin (same as the other ship-admin commands, `mod_role` or Administrator).
+> ⚙️ Bars are rendered as text (`█████░░░░░`) inside a normal embed — not a graphic image — so it needs no extra setup and always works on Railway.
+
+---
+
 ### 🏴‍☠️ Belly Rush Blacklist
 
 Names are stored as **plain text**, not Discord users — works even for people not in the server.
@@ -467,6 +485,24 @@ Hydra - @Nami @Sanji
 > `!post-unlock-info` — праща картата с инструкции в `belly_rush_unlock_channel` *(Админ, нужен е първо `!setconfig belly_rush_unlock_channel <channel>`)*
 > Пускаш командата пак по всяко време, за да редактираш същото съобщение — никога не се дублира.
 ```
+---
+
+### 📊 Ship Status (HP / Fatigue)
+
+Постваш статус табло за екипажа на кораб — ръчно или чрез AI, което го разчита от скрийншот. Работи по същия **edit-in-place** принцип — пускаш пак командата за същия кораб и тя редактира съществуващото съобщение, вместо да постне ново.
+
+```
+!shipstatus title:Embra unit1:EMP Lucky,100 unit2:Jochwirt,92 unit3:Imhotep,33,Team 3 Fatigue -30%
+```
+
+```
+!shipstatus-image [title]   ← прикачи скрийншот от статуса на екипажа
+```
+
+> 💡 `!shipstatus-image` праща скрийншота на AI, после ти показва **preview с ✅ Confirm / ❌ Cancel бутони** — нищо не се поства или презаписва, докато Мод/Админ не потвърди. Ако AI-то сгреши име или процент, просто натисни Cancel и пробвай `!shipstatus` ръчно или по-ясен скрийншот.
+> 🔒 И двете команди изискват Мод/Админ (както другите ship-admin команди — `mod_role` или Administrator).
+> ⚙️ Баровете се рендират като текст (`█████░░░░░`) в обикновен embed, не като графична картинка — затова не иска допълнителна настройка и винаги работи на Railway.
+
 ---
 
 ### 🏴‍☠️ Belly Rush Blacklist

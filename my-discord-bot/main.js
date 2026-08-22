@@ -12,6 +12,7 @@ const levelingSystem = require('./utilities/leveling.js');
 const { initSchedulers, handleManiaPlan, handleManiaList, handleManiaStrategy, handleManiaHelp, handleManiaDM } = require("./utilities/scheduler");
 const { handleCommands } = require("./utilities/commandHandler");
 const { handleAIMention } = require("./utilities/AI");
+const { handleShipStatusMessage, handleShipStatusInteraction } = require("./utilities/shipStatus"); // [ShipStatus]
 const { handleSpecialChannels } = require("./utilities/specialChannels");
 const { handleNewMember, handleRoleCommands } = require("./utilities/roleHandler");
 const { sendBotManual } = require("./utilities/infoHandler");
@@ -893,6 +894,10 @@ client.on("messageCreate", async (msg) => {
             return msg.reply({ embeds: [embed] });
         }
 
+        // [ShipStatus] !shipstatus / !shipstatus-image — крие се преди AI/generic handler-ите
+        const shipStatusHandled = await handleShipStatusMessage(msg);
+        if (shipStatusHandled) return;
+
         // ✅ AI enable/disable команди
         const aiCmdHandled = await handleAIMention(msg, client);
         if (aiCmdHandled) return;
@@ -1015,6 +1020,10 @@ client.on('messageReactionAdd', async (reaction, user) => {
 // Обработка на бутони и други интеракции в Discord
 client.on("interactionCreate", async (interaction) => {
     try {
+        // [ShipStatus] Confirm/Cancel бутони за AI-прочетения ship status preview
+        const shipStatusInteractionHandled = await handleShipStatusInteraction(interaction);
+        if (shipStatusInteractionHandled) return;
+
         // Одобряване или отхвърляне на перманентен екипаж (Permanent Crew) от модератори
         if (interaction.isButton() && (interaction.customId.startsWith('perm_approve:') || interaction.customId.startsWith('perm_deny:'))) {
             const modRole = await getConfig(interaction.guild.id, 'mod_role');

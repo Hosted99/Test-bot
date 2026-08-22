@@ -264,7 +264,7 @@ Rules:
             ],
             generationConfig: {
                 temperature: 0,
-                maxOutputTokens: 2000,
+                maxOutputTokens: 4096,
                 responseMimeType: 'application/json', // изчисто JSON, без markdown/reasoning шум
                 // responseSchema принуждава Gemini да следва ТОЧНО тази структура
                 // (schema-constrained decoding) — много по-надежден начин да не
@@ -293,7 +293,12 @@ Rules:
         { headers: { 'Content-Type': 'application/json' } }
     );
 
-    let raw = (response.data?.candidates?.[0]?.content?.parts || [])
+    const candidate = response.data?.candidates?.[0];
+    if (candidate?.finishReason === 'MAX_TOKENS') {
+        throw new Error('Gemini отговорът беше отрязан (твърде много units за maxOutputTokens бюджета). Пробвай с по-малко снимки наведнъж.');
+    }
+
+    let raw = (candidate?.content?.parts || [])
         .map(p => p.text || '')
         .join('')
         .trim();

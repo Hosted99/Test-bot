@@ -18,7 +18,7 @@
  *        NOTE: Groq's TPM (tokens-per-minute) limit on lower tiers gets hit
  *        fast with full-size screenshots, so this file (a) asks Discord to
  *        serve a smaller resolution via its CDN before sending to AI, and
- *        (b) sends at most 2 images per AI call, auto-splitting into extra
+ *        (b) sends at most 1 image per AI call, auto-splitting into extra
  *        batches and merging results if you attach more — you don't need to
  *        think about either limit.
  *
@@ -206,18 +206,19 @@ async function postOrUpdateShipStatus(guild, channel, data) {
 // лесно надвишават TPM лимита на акаунта (виж грешката "Request too large").
 // Никакви нови dependencies — просто друг URL за същия файл.
 // ─────────────────────────────────────────────
-function toResizedDiscordUrl(attachment, maxWidth = 900) {
+function toResizedDiscordUrl(attachment, maxWidth = 1400) {
     const base = attachment.proxyURL || attachment.url;
     const sep = base.includes('?') ? '&' : '?';
     return `${base}${sep}width=${maxWidth}`;
 }
 
 // ─────────────────────────────────────────────
-// Едно AI извикване, МАКСИМУМ 2 снимки наведнъж. Groq-ският твърд лимит е 3,
-// но с намалено на 2 оставяме солиден марж под token-per-minute лимита на
-// акаунта (8000 TPM на on_demand tier), дори с resize-натите снимки.
-// За повече от 2 виж readShipStatusFromImages() по-долу, която ги разбива на
-// групи от по 2.
+// Едно AI извикване, МАКСИМУМ 1 снимка наведнъж. Качихме резолюцията (1400px
+// ширина вместо 900px) за да се чете добре малката fatigue иконка, затова
+// свалихме batch-а на 1 — по-висока резолюция на снимка = повече токени, а
+// искаме солиден марж под token-per-minute лимита на акаунта (8000 TPM на
+// on_demand tier). За повече от 1 снимка виж readShipStatusFromImages()
+// по-долу, която прави отделно извикване за всяка и merge-ва резултатите.
 // ─────────────────────────────────────────────
 async function readShipStatusBatch(imageUrls, titleHint) {
     const urls = imageUrls;
@@ -243,10 +244,12 @@ Rules:
   "Team 3" — exactly one of them is visually highlighted/selected (brighter fill / different color than
   the other two, which look greyed-out or dimmed). Identify which one (1, 2, or 3) is highlighted.
 - Also for units with percent > 0: look for a small icon showing a bent-over/exhausted person figure,
-  usually paired with a small number (1, 2, 3, 4...). This is the fatigue indicator — EACH number of stack
-  equals exactly -10% fatigue (icon+"1" = -10%, icon+"2" = -20%, icon+"3" = -30%, etc.). Multiply the
-  number you see by 10 to get the fatigue percentage. Only report this if you can actually see that icon
-  with a number next to it — do not estimate fatigue from any bar fill level, and never guess a number.
+  usually paired with a small number (1, 2, 3, 4...). This icon is often quite small — look carefully near
+  the unit's portrait/name/level area, not just at the main HP bar. This is the fatigue indicator — EACH
+  number of stack equals exactly -10% fatigue (icon+"1" = -10%, icon+"2" = -20%, icon+"3" = -30%, etc.).
+  Multiply the number you see by 10 to get the fatigue percentage. Only report this if you can actually
+  see that icon with a number next to it — do not estimate fatigue from any bar fill level, and never
+  guess a number.
 - For units with percent > 0, combine both into "label" using EXACTLY this format when you have them:
   "Team <N> Fatigue -<X>%" (e.g. "Team 2 Fatigue -30%", where -30% came from a fatigue icon showing "3").
   If only the team tab is visible with no fatigue icon, use "Team <N>". If only a fatigue icon is visible
@@ -332,10 +335,10 @@ Rules:
 
 // ─────────────────────────────────────────────
 // Публичната функция, викана от команд handler-а. Приема произволен брой
-// снимки (капнати на 8 по-долу), разбива ги на групи от по 3 (лимитът на
-// Groq за този модел) и merge-ва units-ите от всяка група в един списък.
+// снимки (капнати на 8 по-долу), прави отделно AI извикване за всяка (виж
+// MAX_IMAGES_PER_AI_CALL по-горе) и merge-ва units-ите от всички в един списък.
 // ─────────────────────────────────────────────
-const MAX_IMAGES_PER_AI_CALL = 2;
+const MAX_IMAGES_PER_AI_CALL = 1;
 
 async function readShipStatusFromImages(imageUrls, titleHint) {
     const urls = Array.isArray(imageUrls) ? imageUrls : [imageUrls];

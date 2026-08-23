@@ -4,7 +4,9 @@
  * WHAT THIS DOES:
  *   If someone posts an image in the channel set as `bounty_upload_channel`,
  *   the bot reads the bounty number off the screenshot with AI (Gemini —
- *   same engine as shipStatus.js), then automatically:
+ *   gemini-3.1-flash-lite, a DIFFERENT/lighter model than shipStatus.js uses,
+ *   chosen here for its much higher free-tier daily quota — see VISION_MODEL
+ *   comment below), then automatically:
  *     1. saves it to the DB (same `users` table as !setbounty)
  *     2. assigns the matching "Bounty: XM+" role (reuses updateBountyRole
  *        from roleHandler.js — zero duplicated logic)
@@ -33,7 +35,13 @@ const { updateBountyRole } = require('./roleHandler');
 const { buildBountyUpdateEmbed } = require('./bountyEmbed');
 
 // Same Gemini engine/model as shipStatus.js.
-const VISION_MODEL = 'gemini-3.6-flash';
+// gemini-3.1-flash-lite — НЕ gemini-3.6-flash (този е ползван в shipStatus.js).
+// Причина за различния избор тук: Free tier лимитите за 3.6-flash са само
+// 5 RPM / 20 RPD, докато 3.1-flash-lite дава 15 RPM / 500 RPD — 25x повече
+// дневни заявки. Бонус: 3.1-flash-lite мисли на MINIMAL ниво по подразбиране,
+// което почти елиминира риска от "MAX_TOKENS" truncation при простата задача
+// тук (само едно число за извличане). За тази задача Lite е напълно достатъчен.
+const VISION_MODEL = 'gemini-3.1-flash-lite';
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${VISION_MODEL}:generateContent`;
 
 // Anti-spam only (not a security measure) — stops rapid re-uploads from the
@@ -84,6 +92,10 @@ Rules:
                 temperature: 0,
                 maxOutputTokens: 200,
                 responseMimeType: 'application/json',
+                // "low" thinking е доказано с 0 thinking токена при structured-extraction
+                // задачи като тази — целият maxOutputTokens бюджет отива за отговора,
+                // не за вътрешно "мислене". Пази срещу MAX_TOKENS truncation грешката.
+                thinkingConfig: { thinkingLevel: 'low' },
                 responseSchema: {
                     type: 'OBJECT',
                     properties: {

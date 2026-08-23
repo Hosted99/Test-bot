@@ -52,7 +52,7 @@ function buildBountyUpdateEmbed({ user, amount, previousBounty, assignedRank, so
     }
 
     const sourceLine = source === 'ai'
-        ? '📸 Auto-detected from a screenshot by AI'
+        ? '📸 Auto-detected from a screenshot'
         : `🖋️ Set manually by **${setByUsername}**`;
 
     const embed = new EmbedBuilder()

@@ -13,6 +13,7 @@ const { initSchedulers, handleManiaPlan, handleManiaList, handleManiaStrategy, h
 const { handleCommands } = require("./utilities/commandHandler");
 const { handleAIMention } = require("./utilities/AI");
 const { handleShipStatusMessage, handleShipStatusInteraction } = require("./utilities/shipStatus"); // [ShipStatus]
+const { handleBountyImageMessage } = require("./utilities/bountyImage"); // [BountyImage]
 const { handleSpecialChannels } = require("./utilities/specialChannels");
 const { handleNewMember, handleRoleCommands } = require("./utilities/roleHandler");
 const { sendBotManual } = require("./utilities/infoHandler");
@@ -313,6 +314,10 @@ client.on("messageCreate", async (msg) => {
     
     if (msg.author.bot || !msg.guild) return;
 
+    // [BountyImage] Автоматично разчита bounty от screenshot, качен в bounty_upload_channel — без нужда от команда
+    const bountyImageHandled = await handleBountyImageMessage(msg, pool);
+    if (bountyImageHandled) return;
+
     // =================================================================
     // СИСТЕМА ЗА АВТОМАТИЧНА ПРОВЕРКА НА ЛИНКОВЕ И ИЗПРАЩАНЕ ЧРЕЗ WEBHOOK
     // =================================================================
@@ -446,6 +451,7 @@ client.on("messageCreate", async (msg) => {
                 "`bday_user` — user ID for birthday tracking\n" +
                 "`blacklist_channel` — channel for the persistent Belly Rush blacklist embed (optional)\n" +
                 "`ship_status_channel` — channel where !shipstatus / !shipstatus-image always posts, regardless of where typed (optional)\n" +
+                "`bounty_upload_channel` — channel where any screenshot auto-triggers a bounty update (AI-read, no command needed, optional)\n" +
                 "`mania_main_channel` — main channel for Mania notifications (optional)");
             }
             await setConfig(msg.guild.id, key, value, msg.guild.name);
@@ -791,6 +797,7 @@ client.on("messageCreate", async (msg) => {
                 { key: "bday_user",                 desc: "Birthday tracking user",         type: "text",    optional: true },
                 { key: "blacklist_channel",          desc: "Belly Rush blacklist embed",     type: "channel", optional: true },
                 { key: "ship_status_channel",        desc: "Fixed channel for !shipstatus (optional, else uses current channel)", type: "channel", optional: true },
+                { key: "bounty_upload_channel",       desc: "Auto-detect bounty from any screenshot posted here (optional)", type: "channel", optional: true },
             ];
 
             const { EmbedBuilder } = require("discord.js");

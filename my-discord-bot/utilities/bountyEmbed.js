@@ -6,7 +6,9 @@
  *   - Automatic: AI screenshot read (in bountyImage.js)
  *
  * Shows the before → after change and picks a punchier title/color depending
- * on whether the bounty went up, down, or is brand new.
+ * on whether the bounty went up, down, or is brand new. Titles (and the
+ * celebratory intro line) are picked randomly from a few variants per case,
+ * so it doesn't say the exact same thing every single time.
  * ============================================================================
  */
 
@@ -15,6 +17,31 @@ const { EmbedBuilder } = require('discord.js');
 function formatBounty(n) {
     return `฿ **${Number(n).toLocaleString()}**`;
 }
+
+function pick(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+}
+
+// Няколко варианта на заглавие + intro фраза за всеки случай — random избор,
+// за да не звучи еднакво всеки път. Добави нови стрингове тук по всяко време.
+const VARIANTS = {
+    firstBounty: {
+        titles: ['☠️ NEW PIRATE MARKED ☠️', '🏴‍☠️ A NEW BOUNTY RISES 🏴‍☠️', '📜 FIRST WANTED POSTER 📜', '⚓ WELCOME TO THE SEAS ⚓'],
+        intros: ['has just been marked by the World Government!', 'is now officially a wanted pirate!', 'just got their first bounty!']
+    },
+    increase: {
+        titles: ['🚨 BOUNTY SKYROCKETS 🚨', '📈 THE WORLD GOVERNMENT PANICS 📈', '🔥 MORE WANTED THAN EVER 🔥', '⚡ THREAT LEVEL INCREASED ⚡', '💰 BOUNTY ON THE RISE 💰'],
+        intros: ['has a new bounty!', 'just became more dangerous!', 'is climbing the ranks!']
+    },
+    decrease: {
+        titles: ['⚠️ BOUNTY SLASHED ⚠️', '📉 BOUNTY TAKES A HIT 📉', '🧊 THREAT LEVEL COOLING 🧊', '✂️ REWARD TRIMMED ✂️'],
+        intros: ['has a new bounty...', 'took a step back.', 'is losing the Marines\' attention.']
+    },
+    noChange: {
+        titles: ['🎖️ BOUNTY REAFFIRMED 🎖️', '📋 STATUS CONFIRMED 📋', '🔁 NO CHANGE DETECTED 🔁', '🗂️ RECORD UPDATED 🗂️'],
+        intros: ['has the same bounty as before.', 'remains at the same threat level.']
+    }
+};
 
 /**
  * @param {Object} opts
@@ -29,35 +56,39 @@ function buildBountyUpdateEmbed({ user, amount, previousBounty, assignedRank, so
     const delta = amount - previousBounty;
     const isFirstBounty = previousBounty <= 0;
 
-    let title;
+    let variantKey;
     let color;
     let deltaLine;
 
     if (isFirstBounty) {
-        title = '☠️ NEW PIRATE MARKED ☠️';
+        variantKey = 'firstBounty';
         color = '#f1c40f'; // gold
         deltaLine = '🆕 First bounty on record!';
     } else if (delta > 0) {
-        title = '🚨 BOUNTY SKYROCKETS 🚨';
+        variantKey = 'increase';
         color = '#e74c3c'; // alert red
-        deltaLine = `📈 **+${formatBounty(delta)}**`;
+        deltaLine = `📈 +${formatBounty(delta)}`; // formatBounty вече слага **bold** — не увиваме пак
     } else if (delta < 0) {
-        title = '⚠️ BOUNTY SLASHED ⚠️';
+        variantKey = 'decrease';
         color = '#3498db'; // cool blue, less alarming
-        deltaLine = `📉 **-${formatBounty(Math.abs(delta))}**`;
+        deltaLine = `📉 -${formatBounty(Math.abs(delta))}`;
     } else {
-        title = '🎖️ BOUNTY REAFFIRMED 🎖️';
+        variantKey = 'noChange';
         color = '#95a5a6'; // neutral grey
         deltaLine = '➡️ No change';
     }
 
+    const { titles, intros } = VARIANTS[variantKey];
+    const title = pick(titles);
+    const intro = pick(intros);
+
     const sourceLine = source === 'ai'
-        ? '📸 Auto-detected from a screenshot'
+        ? '📸 Auto-detected from a screenshot by AI'
         : `🖋️ Set manually by **${setByUsername}**`;
 
     const embed = new EmbedBuilder()
         .setTitle(title)
-        .setDescription(`🎊 **${user.username}** has a new bounty!\n${sourceLine}`)
+        .setDescription(`🎊 **${user.username}** ${intro}\n${sourceLine}`)
         .addFields(
             { name: '💰 Previous Bounty', value: isFirstBounty ? '฿ *(none)*' : formatBounty(previousBounty), inline: true },
             { name: '💰 New Bounty', value: formatBounty(amount), inline: true },

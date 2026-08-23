@@ -4,6 +4,7 @@ const path = require('path');
 const staticReminders = require("../data/staticReminders");
 const { isValidCron } = require("./scheduler");
 const { updateBountyRole } = require("./roleHandler");
+const { buildBountyUpdateEmbed } = require("./bountyEmbed");
 const { getConfig, getChannel } = require("./guildConfig");
 
 // ─────────────────────────────────────────────
@@ -46,7 +47,7 @@ async function handleCommands(msg, pool) {
                 },
                 {
                     name: "💰 Bounty System",
-                    value: "• `!wanted [@user]` — Show Wanted poster\n• `!setbounty @user <amount>` — Set bounty and role (Mod/Admin)\n• `!resetbounty @user` — Reset bounty to ฿0 (Mod/Admin)"
+                    value: "• `!wanted [@user]` — Show Wanted poster\n• `!setbounty @user <amount>` — Set bounty and role (Mod/Admin)\n• `!resetbounty @user` — Reset bounty to ฿0 (Mod/Admin)\n• 📸 Anyone can just post a bounty screenshot in `bounty_upload_channel` (if configured) — AI reads it and updates the bounty automatically, no command needed"
                 },
                 {
                     name: "⚔️ Heroes & Guides",
@@ -382,6 +383,10 @@ async function handleCommands(msg, pool) {
         }
 
         try {
+            // Взимаме предишния bounty ПРЕДИ да го презапишем, за да покажем delta-та
+            const prevRes = await pool.query("SELECT bounty FROM users WHERE guild_id = $1 AND user_id = $2", [msg.guild.id, target.id]);
+            const previousBounty = prevRes.rows.length > 0 ? Number(prevRes.rows[0].bounty) : 0;
+
             // ✅ PER-SERVER bounty with guild_name / PER-СЪРВЪР bounty с guild_name
             await pool.query(
                 "INSERT INTO users (guild_id, guild_name, user_id, bounty, username) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (guild_id, user_id) DO UPDATE SET bounty = $4, username = $5, guild_name = $2",
@@ -390,17 +395,14 @@ async function handleCommands(msg, pool) {
 
             const assignedRank = await updateBountyRole(target, amount);
 
-            const embed = new EmbedBuilder()
-                .setTitle("🎖️ Bounty Update")
-                .setDescription(`🎊 **${target.user.username}** has a new bounty!`)
-                .addFields(
-                    { name: "💰 New Bounty", value: `฿ **${Number(amount).toLocaleString()}**`, inline: true },
-                    { name: "📈 New Role", value: `🚀 **${assignedRank || "Updated"}**`, inline: true }
-                )
-                .setThumbnail(target.user.displayAvatarURL({ dynamic: true }))
-                .setColor("#f1c40f")
-                .setFooter({ text: "The World Government is watching..." })
-                .setTimestamp();
+            const embed = buildBountyUpdateEmbed({
+                user: target.user,
+                amount: Number(amount),
+                previousBounty,
+                assignedRank,
+                source: 'manual',
+                setByUsername: msg.author.username
+            });
 
             await msg.channel.send({ embeds: [embed] });
         } catch (err) {

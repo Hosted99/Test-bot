@@ -138,7 +138,7 @@ CRITICAL RULES:
                 model: "qwen/qwen3.6-27b",
                 reasoning_effort: "none", // изключваме reasoning-а - не ни трябва за прост превод
                 temperature: 0.0, // ВАЖНО: Пълна нула! Премахва всякакво филмиране и пренаписване от страна на ИИ
-                max_tokens: 150
+                max_tokens: 400
             });
 
             const translated = result.choices[0].message.content.trim();

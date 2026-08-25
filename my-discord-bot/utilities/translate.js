@@ -65,7 +65,8 @@ function initTranslateSystem(client) {
 RULES:
 1. Translate the message accurately into ${targetLanguage}. Keep all specific names, words, and meaning exactly as they are. Do not substitute names with slang.
 2. If the message is already in ${targetLanguage}, reply with exactly one word: SKIP
-3. Output ONLY the raw translation or the word SKIP. No explanations, no quotes.`;
+3. Output ONLY the raw translation or the word SKIP. No explanations, no quotes.
+4. If a third-person pronoun's gender is not actually determinable from the source text's grammar (e.g. a possessive like Italian "suo/sua" that agrees with the grammatical gender of the object owned, not the gender of the person), and ${targetLanguage} normally requires a gendered pronoun, translate it as "he/she" (or the natural dual form in ${targetLanguage}) instead of guessing a single gender.`;
 
             const result = await groq.chat.completions.create({
                 messages: [
@@ -128,7 +129,8 @@ CRITICAL RULES:
 1. If the message is already written in English (even with slang, typos, or abbreviations like "Oiii", "tf", "lol", "stalker"), you MUST reply with exactly one word: SKIP
 2. If and ONLY IF the message is in a completely different language (French, Spanish, Bulgarian, etc.), translate it into English.
 3. Keep the translation exact. Do not change words. Do not rewrite slang.
-4. Output ONLY the word SKIP or the raw translation. No quotes, no explanations.`;
+4. If a third-person pronoun's gender is not actually determinable from the source language's grammar (e.g. a possessive like Italian "suo/sua" that agrees with the grammatical gender of the object owned, not the gender of the person it belongs to), translate it as "he/she" instead of guessing a single gender.
+5. Output ONLY the word SKIP or the raw translation. No quotes, no explanations.`;
 
             const result = await groq.chat.completions.create({
                 messages: [
@@ -138,7 +140,7 @@ CRITICAL RULES:
                 model: "qwen/qwen3.6-27b",
                 reasoning_effort: "none", // изключваме reasoning-а - не ни трябва за прост превод
                 temperature: 0.0, // ВАЖНО: Пълна нула! Премахва всякакво филмиране и пренаписване от страна на ИИ
-                max_tokens: 400
+                max_tokens: 150
             });
 
             const translated = result.choices[0].message.content.trim();

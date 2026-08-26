@@ -73,9 +73,9 @@ async function isModOrAdmin(member) {
 }
 
 // ─────────────────────────────────────────────
-// Parsing: "title:Embra unit1:EMP Lucky,100 unit2:Imhotep,33,Team 3 Fatigue -30%"
+// Parsing: "title:Sunny unit1:Akagami,100 unit2:Hosted,33,Team 3 Fatigue -30%"
 // Delimiters are "title:" / "unitN:" — NOT plain spaces, so names with
-// spaces (e.g. "EMP Lucky") survive intact.
+// spaces (e.g. "Hosted) survive intact.
 // ─────────────────────────────────────────────
 function parseShipStatusText(raw) {
     const tokenRegex = /(?:^|\s)(title|unit\d+):/g;
@@ -471,7 +471,7 @@ async function handleShipStatusMessage(msg) {
     const data = parseShipStatusText(rest);
     if (!data) {
         await msg.reply(
-            '❌ Format: `/shipstatus title:Embra unit1:EMP Lucky,100 unit2:Jochwirt,92 unit3:Imhotep,33,Team 3 Fatigue -30%`\n' +
+            '❌ Format: `/shipstatus title:Sunny unit1:Mugiwara,100 unit2:Hosted,92 unit3:Akagami,33,Team 3 Fatigue -40%`\n' +
             'Or attach a screenshot and use `!shipstatus-image [title]` to let AI fill it in for you.'
         );
         return true;

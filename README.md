@@ -165,7 +165,7 @@ Hydra - @Nami @Sanji
 Post a crew-status board for a ship — either manually or by letting AI read it off a screenshot. Same **edit-in-place** pattern as everything else: re-run for the same ship and it updates the existing message instead of posting a new one.
 
 ```
-!shipstatus title:Embra unit1:EMP Lucky,100 unit2:Jochwirt,92 unit3:Imhotep,33,Team 3 Fatigue -30%
+!shipstatus title:Sunny unit1:Mugiwara,100 unit2:Hosted,92 unit3:Akagami,33,Team 3 Fatigue -30%
 ```
 
 ```
@@ -511,7 +511,7 @@ Hydra - @Nami @Sanji
 Постваш статус табло за екипажа на кораб — ръчно или чрез AI, което го разчита от скрийншот. Работи по същия **edit-in-place** принцип — пускаш пак командата за същия кораб и тя редактира съществуващото съобщение, вместо да постне ново.
 
 ```
-!shipstatus title:Embra unit1:EMP Lucky,100 unit2:Jochwirt,92 unit3:Imhotep,33,Team 3 Fatigue -30%
+!shipstatus title:Sunny unit1:Mugiwara,100 unit2:Hosted,92 unit3:Akagami,33,Team 3 Fatigue -30%
 ```
 
 ```

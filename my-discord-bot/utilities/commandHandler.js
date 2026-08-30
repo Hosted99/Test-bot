@@ -249,6 +249,12 @@ async function handleCommands(msg, pool) {
             .setTitle(`${info.icon} ${cleanName}${rarity ? ` \`${rarity}\`` : ""}`)
             .setColor(info.color)
             .setDescription(`${info.label}${subrole ? ` · ${subrole}` : ""}`)
+
+                // Ако има ранг (SSR+/UR), го добавяме в най-горната част на съобщението
+        if (rarity) {
+        embed.setAuthor({ name: `⭐ Rarity: ${rarity}` });
+        }
+            
             .addFields(
                 { name: "🛡️ Equipment", value: hero.equipment || "---", inline: true },
                 { name: "🧬 Haki Rec", value: hero.haki || "---", inline: true }

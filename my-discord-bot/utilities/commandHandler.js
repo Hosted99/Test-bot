@@ -22,6 +22,41 @@ function getHeroes() {
     }
 }
 
+// ─────────────────────────────────────────────
+// Hero display helpers (archetype grouping, rarity badge, chip formatting)
+// Помощни функции за показване на герои (групиране по archetype, rarity badge, chip формат)
+// ─────────────────────────────────────────────
+const ARCHETYPE_INFO = {
+    tank: { icon: "🛡️", label: "Tank", color: "#378ADD" },
+    warrior: { icon: "⚔️", label: "Warrior", color: "#E24B4A" },
+    mage: { icon: "🔮", label: "Mage", color: "#7F77DD" },
+    support: { icon: "✨", label: "Support", color: "#639922" },
+    other: { icon: "📦", label: "Other", color: "#95a5a6" }
+};
+
+function getArchetype(hero) {
+    const raw = (hero.role || "").split("/")[0].trim().toLowerCase();
+    return ARCHETYPE_INFO[raw] ? raw : "other";
+}
+
+// Извлича rarity от заглавието, напр. "Roger (UR)" -> "UR". Взима последната скоба.
+function extractRarity(title) {
+    const matches = [...(title || "").matchAll(/\(([^)]+)\)/g)];
+    return matches.length > 0 ? matches[matches.length - 1][1].trim() : null;
+}
+
+function cleanTitleName(title) {
+    return (title || "").replace(/\([^)]*\)\s*$/, "").trim();
+}
+
+// "Mind | Pierce | Rage" -> "`Mind` `Pierce` `Rage`" — inline code се рендва
+// от Discord с лек сив фон, най-близкото до "pill/chip" вид, което имаме.
+function toChips(pipeStr) {
+    if (!pipeStr) return null;
+    return pipeStr.split("|").map(s => s.trim()).filter(Boolean).map(s => `\`${s}\``).join(" ");
+}
+
+
 async function handleCommands(msg, pool) {
     const content = msg.content.trim();
     const args = content.split(/\s+/);
@@ -120,24 +155,35 @@ async function handleCommands(msg, pool) {
 
         const heroesData = getHeroes();
         const allKeys = Object.keys(heroesData).sort();
-        const mainBuilds = allKeys.filter(name => !name.toLowerCase().includes("-cultiv1"));
-        const cultiBuilds = allKeys.filter(name => name.toLowerCase().includes("-cultiv1"));
+        const mainKeys = allKeys.filter(key => !key.toLowerCase().includes("-cultiv1"));
+        const cultiKeys = allKeys.filter(key => key.toLowerCase().includes("-cultiv1"));
 
-        const formatList = (list) => {
-            if (list.length === 0) return "---";
-            return list.map((name, index) => `**${index + 1}.** \`${name}\``).join("\n");
-        };
+        // Групиране по archetype (Tank/Warrior/Mage/Support), извлечен от hero.role
+        const groups = {};
+        for (const key of mainKeys) {
+            const archetype = getArchetype(heroesData[key]);
+            if (!groups[archetype]) groups[archetype] = [];
+            groups[archetype].push(key);
+        }
 
         const listEmbed = new EmbedBuilder()
-            .setTitle("📜 OP: Sailing Kingdom — Hero Roster")
-            .setColor("#00AE86")
-            .setDescription("Use `!hero <name>` to view a detailed build.")
-            .addFields(
-                { name: "🔵 Main Builds", value: formatList(mainBuilds), inline: true },
-                { name: "🟡 Culti V1 Variants", value: formatList(cultiBuilds), inline: true }
-            )
-            .setFooter({ text: `Total Heroes: ${allKeys.length} | Build System` })
+            .setTitle("🗡️ OP: Sailing Kingdom — Hero Roster")
+            .setColor("#7F77DD")
+            .setDescription(`Use \`!hero <name>\` to view a detailed build. **${allKeys.length}** heroes total.`)
             .setTimestamp();
+
+        for (const archetype of ["tank", "warrior", "mage", "support", "other"]) {
+            const keys = groups[archetype];
+            if (!keys || keys.length === 0) continue;
+            const info = ARCHETYPE_INFO[archetype];
+            const lines = keys.map(key => `**${cleanTitleName(heroesData[key].title)}** \`${key}\``).join("\n");
+            listEmbed.addFields({ name: `${info.icon} ${info.label}`, value: lines, inline: true });
+        }
+
+        if (cultiKeys.length > 0) {
+            const cultiLines = cultiKeys.map(key => `**${cleanTitleName(heroesData[key].title)}** \`${key}\``).join("\n");
+            listEmbed.addFields({ name: "🟡 Culti V1 Variants", value: cultiLines, inline: false });
+        }
 
         return msg.reply({ embeds: [listEmbed] });
     }
@@ -163,21 +209,40 @@ async function handleCommands(msg, pool) {
 
         if (!hero) return msg.reply(`❌ Hero **${args.join(" ")}** not found! Use \`!hero-list\`.`);
 
+        const archetype = getArchetype(hero);
+        const info = ARCHETYPE_INFO[archetype];
+        const rarity = extractRarity(hero.title);
+        const cleanName = cleanTitleName(hero.title);
+        const subrole = (hero.role || "").split("/")[1] || "";
+
         const embed = new EmbedBuilder()
-            .setTitle(hero.title)
-            .setColor(hero.color || "#2b2d31")
+            .setTitle(`${info.icon} ${cleanName}${rarity ? ` \`${rarity}\`` : ""}`)
+            .setColor(info.color)
+            .setDescription(`${info.label}${subrole ? ` · ${subrole}` : ""}`)
             .addFields(
-                { name: "⚔️ Role", value: hero.role || "N/A", inline: true },
-                { name: "🛡️ Equipment", value: hero.equipment || "N/A", inline: true },
-                { name: "🧬 Haki Rec", value: hero.haki || "N/A", inline: true },
-                { name: "📜 Seals", value: hero.seals || "N/A", inline: false },
-                { name: "✨ Extras", value: hero.extras || "N/A", inline: false },
-                { name: "🍎 Devil Fruit", value: hero.devil_fruit || "N/A", inline: false },
-                { name: "🍊 2nd Devil Fruit", value: hero.secondary_fruit || "---", inline: false },
-                { name: "🌊 Fruit Awakenings", value: hero.awakenings || "N/A", inline: false },
-                { name: "✒️ Signature ", value: hero.signature || "N/A", inline: false },
-                { name: "💎 Treasure", value: hero.treasure || "N/A", inline: false }
+                { name: "🛡️ Equipment", value: hero.equipment || "---", inline: true },
+                { name: "🧬 Haki Rec", value: hero.haki || "---", inline: true }
             );
+
+        // Всяко поле се добавя само ако реално има съдържание — без "N/A" филър
+        const chipFields = [
+            { name: "📜 Seals", value: toChips(hero.seals) },
+            { name: "✨ Extras", value: toChips(hero.extras) }
+        ];
+        for (const f of chipFields) {
+            if (f.value) embed.addFields({ name: f.name, value: f.value, inline: false });
+        }
+
+        const plainFields = [
+            { name: "🍎 Devil Fruit", value: hero.devil_fruit },
+            { name: "🍊 2nd Devil Fruit", value: hero.secondary_fruit },
+            { name: "🌊 Fruit Awakenings", value: hero.awakenings },
+            { name: "✒️ Signature", value: hero.signature },
+            { name: "💎 Treasure", value: hero.treasure }
+        ];
+        for (const f of plainFields) {
+            if (f.value) embed.addFields({ name: f.name, value: f.value, inline: false });
+        }
 
         // Only set image if it's a valid URL / Само ако е валиден URL
         if (hero.image && hero.image.startsWith('http')) embed.setImage(hero.image);

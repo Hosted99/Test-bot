@@ -138,7 +138,7 @@ async function handleCommands(msg, pool) {
         return msg.reply({ embeds: [helpEmbed] });
     }
 
-            // ─────────────────────────────────────────────
+               // ─────────────────────────────────────────────
     // !hero-list — list all available heroes
     // !hero-list — списък с всички герои
     // ✅ MULTI-SERVER / МУЛТИ-СЪРВЪР: checks unit_build_channel from config
@@ -158,7 +158,7 @@ async function handleCommands(msg, pool) {
         const mainKeys = allKeys.filter(key => !key.toLowerCase().includes("-cultiv1"));
         const cultiKeys = allKeys.filter(key => key.toLowerCase().includes("-cultiv1"));
 
-        // Групиране по archetype (Tank/Warrior/Mage/Support)
+        // Grupirane po archetype (Tank/Warrior/Mage/Support)
         const groups = {};
         for (const key of mainKeys) {
             const archetype = getArchetype(heroesData[key]);
@@ -166,16 +166,15 @@ async function handleCommands(msg, pool) {
             groups[archetype].push(key);
         }
 
-        // Дефиниране на ANSI цветови кодове за различните роли
-        // Формат: \x1b[синтаксис;цвятm
+        // Цветови кодове САМО за заглавията на ролите
         const ansiColors = {
-            tank: "\x1b[1;34m",     // Син цвят (Bold Blue)
-            warrior: "\x1b[1;31m",  // Червен цвят (Bold Red)
-            mage: "\x1b[1;35m",     // Лилав цвят (Bold Magenta)
-            support: "\x1b[1;32m",  // Зелен цвят (Bold Green)
-            other: "\x1b[1;37m",    // Бял цвят (Bold White)
-            culti: "\x1b[1;33m",    // Жълт цвят (Bold Yellow)
-            reset: "\x1b[0m"        // Нулиране на цвета (Задължително накрая)
+            tank: "\x1b[1;34m",     // Син
+            warrior: "\x1b[1;31m",  // Червен
+            mage: "\x1b[1;35m",     // Лилав
+            support: "\x1b[1;32m",  // Зелен
+            other: "\x1b[1;37m",    // Бял
+            culti: "\x1b[1;33m",    // Жълт
+            reset: "\x1b[0m"
         };
 
         const descriptionLines = [
@@ -189,32 +188,23 @@ async function handleCommands(msg, pool) {
             const info = ARCHETYPE_INFO[archetype];
             const colorCode = ansiColors[archetype] || ansiColors.other;
             
-            // Форматираме героите: "Име (id) • Име2 (id2)"
-            // Забележка: В ANSI блок не можем да ползваме **Bold** или `код`, затова слагаме скоби около ID-то
-            const formattedHeroes = keys.map(key => {
-                const name = cleanTitleName(heroesData[key].title);
-                return `${name} (${key})`;
-            }).join(" • ");
-            
-            // Добавяме иконата и заглавието
-            descriptionLines.push(`${info.icon} **${info.label}**`);
-            // Вкарваме списъка с герои в ANSI код блок с цвят
+            // Заглавието на ролята става цветно
             descriptionLines.push("\`\`\`ansi");
-            descriptionLines.push(`${colorCode}${formattedHeroes}${ansiColors.reset}`);
-            descriptionLines.push("\`\`\`\n");
+            descriptionLines.push(`${info.icon} ${colorCode}${info.label}${ansiColors.reset}`);
+            descriptionLines.push("\`\`\`");
+            
+            // Героите под него се изписват със стандартни Markdown бутончета за ID
+            const formattedHeroes = keys.map(key => `**${cleanTitleName(heroesData[key].title)}** \`${key}\``).join(" • ");
+            descriptionLines.push(`${formattedHeroes}\n`);
         }
 
-        // Добавяме Culti V1 вариантите най-отдолу в жълто
         if (cultiKeys.length > 0) {
-            const cultiLines = cultiKeys.map(key => {
-                const name = cleanTitleName(heroesData[key].title);
-                return `${name} (${key})`;
-            }).join(" • ");
-
-            descriptionLines.push(`🟡 **Culti V1 Variants**`);
             descriptionLines.push("\`\`\`ansi");
-            descriptionLines.push(`${ansiColors.culti}${cultiLines}${ansiColors.reset}`);
+            descriptionLines.push(`🟡 ${ansiColors.culti}Culti V1 Variants${ansiColors.reset}`);
             descriptionLines.push("\`\`\`");
+
+            const cultiLines = cultiKeys.map(key => `**${cleanTitleName(heroesData[key].title)}** \`${key}\``).join(" • ");
+            descriptionLines.push(`${cultiLines}`);
         }
 
         const listEmbed = new EmbedBuilder()
@@ -225,6 +215,8 @@ async function handleCommands(msg, pool) {
 
         return msg.reply({ embeds: [listEmbed] });
     }
+ 
+    
 
     // ─────────────────────────────────────────────
     // !hero <name> — full hero build guide

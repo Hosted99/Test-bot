@@ -138,7 +138,7 @@ async function handleCommands(msg, pool) {
         return msg.reply({ embeds: [helpEmbed] });
     }
 
-               // ─────────────────────────────────────────────
+                  // ─────────────────────────────────────────────
     // !hero-list — list all available heroes
     // !hero-list — списък с всички герои
     // ✅ MULTI-SERVER / МУЛТИ-СЪРВЪР: checks unit_build_channel from config
@@ -158,7 +158,7 @@ async function handleCommands(msg, pool) {
         const mainKeys = allKeys.filter(key => !key.toLowerCase().includes("-cultiv1"));
         const cultiKeys = allKeys.filter(key => key.toLowerCase().includes("-cultiv1"));
 
-        // Grupirane po archetype (Tank/Warrior/Mage/Support)
+        // Групиране по archetype (Tank/Warrior/Mage/Support)
         const groups = {};
         for (const key of mainKeys) {
             const archetype = getArchetype(heroesData[key]);
@@ -166,15 +166,15 @@ async function handleCommands(msg, pool) {
             groups[archetype].push(key);
         }
 
-        // Цветови кодове САМО за заглавията на ролите
+        // Цветови кодове за заглавията на ролите в ANSI формат
         const ansiColors = {
-            tank: "\x1b[1;34m",     // Син
-            warrior: "\x1b[1;31m",  // Червен
-            mage: "\x1b[1;35m",     // Лилав
-            support: "\x1b[1;32m",  // Зелен
-            other: "\x1b[1;37m",    // Бял
-            culti: "\x1b[1;33m",    // Жълт
-            reset: "\x1b[0m"
+            tank: "\x1b[1;34m",     // Син цвят
+            warrior: "\x1b[1;31m",  // Червен цвят
+            mage: "\x1b[1;35m",     // Лилав цвят
+            support: "\x1b[1;32m",  // Зелен цвят
+            other: "\x1b[1;37m",    // Бял цвят
+            culti: "\x1b[1;33m",    // Жълт цвят
+            reset: "\x1b[0m"        // Нулиране на цвета
         };
 
         const descriptionLines = [
@@ -188,16 +188,17 @@ async function handleCommands(msg, pool) {
             const info = ARCHETYPE_INFO[archetype];
             const colorCode = ansiColors[archetype] || ansiColors.other;
             
-            // Заглавието на ролята става цветно
+            // 1. Правим цветно заглавие на ролята в малко ANSI блокче
             descriptionLines.push("\`\`\`ansi");
             descriptionLines.push(`${info.icon} ${colorCode}${info.label}${ansiColors.reset}`);
             descriptionLines.push("\`\`\`");
             
-            // Героите под него се изписват със стандартни Markdown бутончета за ID
+            // 2. Нареждаме героите отдолу с техните сиви ID бутончета
             const formattedHeroes = keys.map(key => `**${cleanTitleName(heroesData[key].title)}** \`${key}\``).join(" • ");
             descriptionLines.push(`${formattedHeroes}\n`);
         }
 
+        // Добавяме Culti V1 вариантите най-отдолу, ако съществуват
         if (cultiKeys.length > 0) {
             descriptionLines.push("\`\`\`ansi");
             descriptionLines.push(`🟡 ${ansiColors.culti}Culti V1 Variants${ansiColors.reset}`);
@@ -207,6 +208,7 @@ async function handleCommands(msg, pool) {
             descriptionLines.push(`${cultiLines}`);
         }
 
+        // Създаване на финалния красив Embed
         const listEmbed = new EmbedBuilder()
             .setTitle("🗡️ OP: Sailing Kingdom — Hero Roster")
             .setColor("#7F77DD")
@@ -215,6 +217,7 @@ async function handleCommands(msg, pool) {
 
         return msg.reply({ embeds: [listEmbed] });
     }
+
  
     
 

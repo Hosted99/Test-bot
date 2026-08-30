@@ -218,10 +218,7 @@ async function handleCommands(msg, pool) {
         return msg.reply({ embeds: [listEmbed] });
     }
 
- 
-    
-
-        // ─────────────────────────────────────────────
+            // ─────────────────────────────────────────────
     // !hero <name> — full hero build guide
     // !hero <ime> — пълен билд на герой
     // ✅ MULTI-SERVER / МУЛТИ-СЪРВЪР: checks unit_build_channel from config
@@ -248,28 +245,35 @@ async function handleCommands(msg, pool) {
         const cleanName = cleanTitleName(hero.title);
         const subrole = (hero.role || "").split("/")[1] || "";
 
-        // 1. Подравняваме заглавието и подзаглавието (точно като на снимката)
-        // Рарити тагът (напр. UR) го слагаме като малко бутонче най-отгоре вдясно на заглавието
+        // Подравняваме заглавието и описанието (точно като на снимката от началото)
         const embed = new EmbedBuilder()
-            .setTitle(`${info.icon} ${cleanName} ${rarity ? ` \`${rarity}\`` : ""}`)
+            .setTitle(`${info.icon} ${cleanName}${rarity ? ` \`${rarity}\`` : ""}`)
             .setColor(info.color)
-            .setDescription(`*${info.label}${subrole ? ` · ${subrole}` : ""}*\n\u200b`); // \u200b добавя отстоянието от скрийншота
+            .setDescription(`*${info.label}${subrole ? ` · ${subrole}` : ""}*\n\u200b`);
 
-        // 2. Слагаме Еквипмънт и Хаки в 2 перфектни паралелни колони (inline: true)
+        // Еквипмънт и Хаки в две успоредни колони на един ред (inline: true)
         embed.addFields(
             { name: "Equipment", value: `**${hero.equipment || "---"}**`, inline: true },
             { name: "Haki order", value: `**${hero.haki || "---"}**`, inline: true }
         );
 
-        // 3. Добавяме Seals и Extras, като им слагаме малко празен ред отгоре, за да не се сбиват с горните полета
-        if (hero.seals && toChips(hero.seals)) {
-            embed.addFields({ name: "\u200b\nSeals", value: toChips(hero.seals), inline: false });
-        }
-        if (hero.extras && toChips(hero.extras)) {
-            embed.addFields({ name: "Extras", value: toChips(hero.extras), inline: false });
+        // 📜 СИН ПЛЪТЕН ФОН за Seals (на един общ ред)
+        if (hero.seals && hero.seals.length > 0) {
+            // Генерираме цветните кутийки вътре в масива
+            const blueChips = hero.seals.map(seal => `\x1b[1;37;44m ${seal} \x1b[0m`).join("  |  ");
+            // Вкарваме ги в един общ блок за цялото поле
+            embed.addFields({ name: "\u200b\n📜 Seals", value: `\`\`\`ansi\n${blueChips}\n\`\`\``, inline: false });
         }
 
-        // 4. Останалите допълнителни полета
+        // ✨ ЧЕРВЕН ПЛЪТЕН ФОН за Extras (на един общ ред)
+        if (hero.extras && hero.extras.length > 0) {
+            // Генерираме червените кутийки
+            const redChips = hero.extras.map(extra => `\x1b[1;37;41m ${extra} \x1b[0m`).join("  |  ");
+            // Вкарваме ги в един общ блок
+            embed.addFields({ name: "✨ Extras", value: `\`\`\`ansi\n${redChips}\n\`\`\``, inline: false });
+        }
+
+        // Останалите стандартни полета от оригиналния ти код
         const plainFields = [
             { name: "🍎 Devil Fruit", value: hero.devil_fruit },
             { name: "🍊 2nd Devil Fruit", value: hero.secondary_fruit },
@@ -288,43 +292,8 @@ async function handleCommands(msg, pool) {
         return msg.channel.send({ embeds: [embed] });
     }
 
-           // ───────────ВРЕМЕННА КОМАНДА ЗА ТЕСТ НА СТИЛ──────
-    // ОБНОВЕНА КОМАНДА ЗА ТЕСТ НА ХОРИЗОНТАЛНИ СТИЛОВЕ
-    // ─────────────────────────────────────────────
-    if (cmd === "!test-style") {
-        
-        // Вариант 1: Всички думи са с плътен СИН фон в един общ блок
-        const style1Words = ["Mind", "Pierce", "Rage", "Fury", "Control", "Fistwind"]
-            .map(word => `\x1b[1;37;44m ${word} \x1b[0m`) // Бял текст на син фон
-            .join("  |  "); // Разделител
 
-        // Вариант 2: Всички думи са в квадратни скоби със СИНИ букви в един общ блок
-        const style2Words = ["Mind", "Pierce", "Rage", "Fury", "Control", "Fistwind"]
-            .map(word => `\x1b[1;34m[${word}]\x1b[0m`) // Само сини букви
-            .join("  |  "); // Разделител
-
-        const testEmbed = new EmbedBuilder()
-            .setTitle("🧪 Тест на ХОРИЗОНТАЛНИ Seals и Extras")
-            .setColor("#7F77DD")
-            .addFields(
-                { 
-                    name: "🔹 ВАРИАНТ 1: Изцяло цветен фон (на един ред)", 
-                    value: `\`\`\`ansi\n${style1Words}\n\`\`\``, 
-                    inline: false 
-                },
-                { 
-                    name: "🔸 ВАРИАНТ 2: Квадратни скоби с цветни букви (на един ред)", 
-                    value: `\`\`\`ansi\n${style2Words}\n\`\`\``, 
-                    inline: false 
-                }
-            );
-
-        return msg.reply({ embeds: [testEmbed] });
-    }
-
-
-
-
+     
     // ─────────────────────────────────────────────
     // !remind — create a custom reminder
     // !remind — създава персонализирано напомняне

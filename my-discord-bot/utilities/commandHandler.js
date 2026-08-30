@@ -221,7 +221,7 @@ async function handleCommands(msg, pool) {
  
     
 
-    // ─────────────────────────────────────────────
+        // ─────────────────────────────────────────────
     // !hero <name> — full hero build guide
     // !hero <ime> — пълен билд на герой
     // ✅ MULTI-SERVER / МУЛТИ-СЪРВЪР: checks unit_build_channel from config
@@ -248,24 +248,28 @@ async function handleCommands(msg, pool) {
         const cleanName = cleanTitleName(hero.title);
         const subrole = (hero.role || "").split("/")[1] || "";
 
+        // 1. Подравняваме заглавието и подзаглавието (точно като на снимката)
+        // Рарити тагът (напр. UR) го слагаме като малко бутонче най-отгоре вдясно на заглавието
         const embed = new EmbedBuilder()
-            .setTitle(`${info.icon} ${cleanName}${rarity ? ` \`${rarity}\`` : ""}`)
+            .setTitle(`${info.icon} ${cleanName} ${rarity ? ` \`${rarity}\`` : ""}`)
             .setColor(info.color)
-            .setDescription(`${info.label}${subrole ? ` · ${subrole}` : ""}`)
-            .addFields(
-                { name: "🛡️ Equipment", value: hero.equipment || "---", inline: true },
-                { name: "🧬 Haki Rec", value: hero.haki || "---", inline: true }
-            );
+            .setDescription(`*${info.label}${subrole ? ` · ${subrole}` : ""}*\n\u200b`); // \u200b добавя отстоянието от скрийншота
 
-        // Всяко поле се добавя само ако реално има съдържание — без "N/A" филър
-        const chipFields = [
-            { name: "📜 Seals", value: toChips(hero.seals) },
-            { name: "✨ Extras", value: toChips(hero.extras) }
-        ];
-        for (const f of chipFields) {
-            if (f.value) embed.addFields({ name: f.name, value: f.value, inline: false });
+        // 2. Слагаме Еквипмънт и Хаки в 2 перфектни паралелни колони (inline: true)
+        embed.addFields(
+            { name: "Equipment", value: `**${hero.equipment || "---"}**`, inline: true },
+            { name: "Haki order", value: `**${hero.haki || "---"}**`, inline: true }
+        );
+
+        // 3. Добавяме Seals и Extras, като им слагаме малко празен ред отгоре, за да не се сбиват с горните полета
+        if (hero.seals && toChips(hero.seals)) {
+            embed.addFields({ name: "\u200b\nSeals", value: toChips(hero.seals), inline: false });
+        }
+        if (hero.extras && toChips(hero.extras)) {
+            embed.addFields({ name: "Extras", value: toChips(hero.extras), inline: false });
         }
 
+        // 4. Останалите допълнителни полета
         const plainFields = [
             { name: "🍎 Devil Fruit", value: hero.devil_fruit },
             { name: "🍊 2nd Devil Fruit", value: hero.secondary_fruit },
@@ -273,14 +277,17 @@ async function handleCommands(msg, pool) {
             { name: "✒️ Signature", value: hero.signature },
             { name: "💎 Treasure", value: hero.treasure }
         ];
+
         for (const f of plainFields) {
             if (f.value) embed.addFields({ name: f.name, value: f.value, inline: false });
         }
 
-        // Only set image if it's a valid URL / Само ако е валиден URL
+        // Задаване на изображение, ако има такова
         if (hero.image && hero.image.startsWith('http')) embed.setImage(hero.image);
+        
         return msg.channel.send({ embeds: [embed] });
     }
+
 
     // ─────────────────────────────────────────────
     // !remind — create a custom reminder

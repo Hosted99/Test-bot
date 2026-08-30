@@ -257,21 +257,32 @@ async function handleCommands(msg, pool) {
             { name: "Haki order", value: `**${hero.haki || "---"}**`, inline: true }
         );
 
-        // 📜 СИН ПЛЪТЕН ФОН за Seals (на един общ ред)
-        if (hero.seals && hero.seals.length > 0) {
-            // Генерираме цветните кутийки вътре в масива
-            const blueChips = hero.seals.map(seal => `\x1b[1;37;44m ${seal} \x1b[0m`).join("  |  ");
-            // Вкарваме ги в един общ блок за цялото поле
-            embed.addFields({ name: "\u200b\n📜 Seals", value: `\`\`\`ansi\n${blueChips}\n\`\`\``, inline: false });
+                // 📜 СИН ПЛЪТЕН ФОН за Seals (на един общ ред)
+        if (hero.seals) {
+            // Ако е текст, го разделяме по запетайки и махаме излишните интервали
+            const sealsArray = typeof hero.seals === 'string' 
+                ? hero.seals.split(",").map(s => s.trim()) 
+                : hero.seals;
+
+            if (sealsArray.length > 0 && sealsArray[0] !== "") {
+                const blueChips = sealsArray.map(seal => `\x1b[1;37;44m ${seal} \x1b[0m`).join("  |  ");
+                embed.addFields({ name: "\u200b\n📜 Seals", value: `\`\`\`ansi\n${blueChips}\n\`\`\``, inline: false });
+            }
         }
 
         // ✨ ЧЕРВЕН ПЛЪТЕН ФОН за Extras (на един общ ред)
-        if (hero.extras && hero.extras.length > 0) {
-            // Генерираме червените кутийки
-            const redChips = hero.extras.map(extra => `\x1b[1;37;41m ${extra} \x1b[0m`).join("  |  ");
-            // Вкарваме ги в един общ блок
-            embed.addFields({ name: "✨ Extras", value: `\`\`\`ansi\n${redChips}\n\`\`\``, inline: false });
+        if (hero.extras) {
+            // Ако е текст, го разделяме по запетайки и махаме излишните интервали
+            const extrasArray = typeof hero.extras === 'string' 
+                ? hero.extras.split(",").map(e => e.trim()) 
+                : hero.extras;
+
+            if (extrasArray.length > 0 && extrasArray[0] !== "") {
+                const redChips = extrasArray.map(extra => `\x1b[1;37;41m ${extra} \x1b[0m`).join("  |  ");
+                embed.addFields({ name: "✨ Extras", value: `\`\`\`ansi\n${redChips}\n\`\`\``, inline: false });
+            }
         }
+
 
         // Останалите стандартни полета от оригиналния ти код
         const plainFields = [

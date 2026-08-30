@@ -138,7 +138,7 @@ async function handleCommands(msg, pool) {
         return msg.reply({ embeds: [helpEmbed] });
     }
 
-        // ─────────────────────────────────────────────
+            // ─────────────────────────────────────────────
     // !hero-list — list all available heroes
     // !hero-list — списък с всички герои
     // ✅ MULTI-SERVER / МУЛТИ-СЪРВЪР: checks unit_build_channel from config
@@ -166,43 +166,65 @@ async function handleCommands(msg, pool) {
             groups[archetype].push(key);
         }
 
-        // Създаваме масив, в който ще събираме редовете за описанието
+        // Дефиниране на ANSI цветови кодове за различните роли
+        // Формат: \x1b[синтаксис;цвятm
+        const ansiColors = {
+            tank: "\x1b[1;34m",     // Син цвят (Bold Blue)
+            warrior: "\x1b[1;31m",  // Червен цвят (Bold Red)
+            mage: "\x1b[1;35m",     // Лилав цвят (Bold Magenta)
+            support: "\x1b[1;32m",  // Зелен цвят (Bold Green)
+            other: "\x1b[1;37m",    // Бял цвят (Bold White)
+            culti: "\x1b[1;33m",    // Жълт цвят (Bold Yellow)
+            reset: "\x1b[0m"        // Нулиране на цвета (Задължително накрая)
+        };
+
         const descriptionLines = [
             `Use \`!hero <name>\` to view a detailed build. **${allKeys.length}** heroes total.\n`
         ];
 
-        // Въртим цикъл през архетипите и ги добавяме хоризонтално с разделител " • "
         for (const archetype of ["tank", "warrior", "mage", "support", "other"]) {
             const keys = groups[archetype];
             if (!keys || keys.length === 0) continue;
             
             const info = ARCHETYPE_INFO[archetype];
+            const colorCode = ansiColors[archetype] || ansiColors.other;
             
-            // Форматираме героите на един ред: **Name** `id` • **Name2** `id2`
-            const formattedHeroes = keys.map(key => `**${cleanTitleName(heroesData[key].title)}** \`${key}\``).join(" • ");
+            // Форматираме героите: "Име (id) • Име2 (id2)"
+            // Забележка: В ANSI блок не можем да ползваме **Bold** или `код`, затова слагаме скоби около ID-то
+            const formattedHeroes = keys.map(key => {
+                const name = cleanTitleName(heroesData[key].title);
+                return `${name} (${key})`;
+            }).join(" • ");
             
-            // Добавяме заглавието на ролята с емоджи и списъка под него
+            // Добавяме иконата и заглавието
             descriptionLines.push(`${info.icon} **${info.label}**`);
-            descriptionLines.push(`${formattedHeroes}\n`);
+            // Вкарваме списъка с герои в ANSI код блок с цвят
+            descriptionLines.push("\`\`\`ansi");
+            descriptionLines.push(`${colorCode}${formattedHeroes}${ansiColors.reset}`);
+            descriptionLines.push("\`\`\`\n");
         }
 
-        // Добавяме Culti V1 вариантите най-отдолу, ако има такива
+        // Добавяме Culti V1 вариантите най-отдолу в жълто
         if (cultiKeys.length > 0) {
-            const cultiLines = cultiKeys.map(key => `**${cleanTitleName(heroesData[key].title)}** \`${key}\``).join(" • ");
+            const cultiLines = cultiKeys.map(key => {
+                const name = cleanTitleName(heroesData[key].title);
+                return `${name} (${key})`;
+            }).join(" • ");
+
             descriptionLines.push(`🟡 **Culti V1 Variants**`);
-            descriptionLines.push(`${cultiLines}`);
+            descriptionLines.push("\`\`\`ansi");
+            descriptionLines.push(`${ansiColors.culti}${cultiLines}${ansiColors.reset}`);
+            descriptionLines.push("\`\`\`");
         }
 
-        // Създаваме финалния Embed, като вкарваме събрания текст в .setDescription()
         const listEmbed = new EmbedBuilder()
             .setTitle("🗡️ OP: Sailing Kingdom — Hero Roster")
             .setColor("#7F77DD")
-            .setDescription(descriptionLines.join("\n")) // Обединява всички редове с нов ред
+            .setDescription(descriptionLines.join("\n"))
             .setTimestamp();
 
         return msg.reply({ embeds: [listEmbed] });
     }
-
 
     // ─────────────────────────────────────────────
     // !hero <name> — full hero build guide

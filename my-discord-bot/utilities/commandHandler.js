@@ -218,7 +218,7 @@ async function handleCommands(msg, pool) {
         return msg.reply({ embeds: [listEmbed] });
     }
 
-               // ─────────────────────────────────────────────
+        // ─────────────────────────────────────────────
     // !hero <name> — full hero build guide
     // !hero <ime> — пълен билд на герой
     // ✅ MULTI-SERVER / МУЛТИ-СЪРВЪР: checks unit_build_channel from config
@@ -228,40 +228,32 @@ async function handleCommands(msg, pool) {
         const isCorrectChannel = unitBuildChannelId
             ? msg.channel.id === unitBuildChannelId
             : msg.channel.name.includes('unit-build');
-
+ 
         if (!isCorrectChannel) return msg.reply("❌ Use the configured unit-build channel!");
-        if (!args) return msg.reply("⚠️ Specify hero! Example: `!hero mihawk`");
-
+        if (!args[0]) return msg.reply("⚠️ Specify hero! Example: `!hero mihawk`");
+ 
         const heroesData = getHeroes();
         const inputName = args.join("-").toLowerCase();
         const heroKey = Object.keys(heroesData).find(key => key.toLowerCase() === inputName);
         const hero = heroesData[heroKey];
-
+ 
         if (!hero) return msg.reply(`❌ Hero **${args.join(" ")}** not found! Use \`!hero-list\`.`);
-
+ 
         const archetype = getArchetype(hero);
         const info = ARCHETYPE_INFO[archetype];
         const rarity = extractRarity(hero.title);
         const cleanName = cleanTitleName(hero.title);
-        const subrole = (hero.role || "").split("/") || "";
-
-        // Създаваме embed-а БЕЗ Title, за да го заместим с перфектно подравнени inline полета
+        const subrole = (hero.role || "").split("/")[1] || "";
+ 
         const embed = new EmbedBuilder()
+            .setTitle(`${info.icon} ${cleanName}${rarity ? ` \`${rarity}\`` : ""}`)
             .setColor(info.color)
-            .setDescription(`${info.label}${subrole ? ` · ${subrole}` : ""}`);
-
-        // Добавяме Името вляво и Ранга със звезда вдясно на най-първия ред
-        embed.addFields(
-            { name: " ", value: `### ${info.icon} ${cleanName}`, inline: true },
-            { name: " ", value: rarity ? `### \u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0⭐ \`${rarity}\`` : " ", inline: true }
-        );
-
-        // На следващия ред слагаме Equipment и Haki
-        embed.addFields(
-            { name: "🛡️ Equipment", value: hero.equipment || "---", inline: true },
-            { name: "🧬 Haki Rec", value: hero.haki || "---", inline: true }
-        );
-
+            .setDescription(`${info.label}${subrole ? ` · ${subrole}` : ""}`)
+            .addFields(
+                { name: "🛡️ Equipment", value: hero.equipment || "---", inline: true },
+                { name: "🧬 Haki Rec", value: hero.haki || "---", inline: true }
+            );
+ 
         // Всяко поле се добавя само ако реално има съдържание — без "N/A" филър
         const chipFields = [
             { name: "📜 Seals", value: toChips(hero.seals) },
@@ -270,7 +262,7 @@ async function handleCommands(msg, pool) {
         for (const f of chipFields) {
             if (f.value) embed.addFields({ name: f.name, value: f.value, inline: false });
         }
-
+ 
         const plainFields = [
             { name: "🍎 Devil Fruit", value: hero.devil_fruit },
             { name: "🍊 2nd Devil Fruit", value: hero.secondary_fruit },
@@ -281,11 +273,12 @@ async function handleCommands(msg, pool) {
         for (const f of plainFields) {
             if (f.value) embed.addFields({ name: f.name, value: f.value, inline: false });
         }
-
+ 
         // Only set image if it's a valid URL / Само ако е валиден URL
         if (hero.image && hero.image.startsWith('http')) embed.setImage(hero.image);
         return msg.channel.send({ embeds: [embed] });
     }
+
 
 
 

@@ -138,7 +138,7 @@ async function handleCommands(msg, pool) {
         return msg.reply({ embeds: [helpEmbed] });
     }
 
-    // ─────────────────────────────────────────────
+        // ─────────────────────────────────────────────
     // !hero-list — list all available heroes
     // !hero-list — списък с всички герои
     // ✅ MULTI-SERVER / МУЛТИ-СЪРВЪР: checks unit_build_channel from config
@@ -158,7 +158,7 @@ async function handleCommands(msg, pool) {
         const mainKeys = allKeys.filter(key => !key.toLowerCase().includes("-cultiv1"));
         const cultiKeys = allKeys.filter(key => key.toLowerCase().includes("-cultiv1"));
 
-        // Групиране по archetype (Tank/Warrior/Mage/Support), извлечен от hero.role
+        // Групиране по archetype (Tank/Warrior/Mage/Support)
         const groups = {};
         for (const key of mainKeys) {
             const archetype = getArchetype(heroesData[key]);
@@ -166,27 +166,43 @@ async function handleCommands(msg, pool) {
             groups[archetype].push(key);
         }
 
-        const listEmbed = new EmbedBuilder()
-            .setTitle("🗡️ OP: Sailing Kingdom — Hero Roster")
-            .setColor("#7F77DD")
-            .setDescription(`Use \`!hero <name>\` to view a detailed build. **${allKeys.length}** heroes total.`)
-            .setTimestamp();
+        // Създаваме масив, в който ще събираме редовете за описанието
+        const descriptionLines = [
+            `Use \`!hero <name>\` to view a detailed build. **${allKeys.length}** heroes total.\n`
+        ];
 
+        // Въртим цикъл през архетипите и ги добавяме хоризонтално с разделител " • "
         for (const archetype of ["tank", "warrior", "mage", "support", "other"]) {
             const keys = groups[archetype];
             if (!keys || keys.length === 0) continue;
+            
             const info = ARCHETYPE_INFO[archetype];
-            const lines = keys.map(key => `**${cleanTitleName(heroesData[key].title)}** \`${key}\``).join("\n");
-            listEmbed.addFields({ name: `${info.icon} ${info.label}`, value: lines, inline: true });
+            
+            // Форматираме героите на един ред: **Name** `id` • **Name2** `id2`
+            const formattedHeroes = keys.map(key => `**${cleanTitleName(heroesData[key].title)}** \`${key}\``).join(" • ");
+            
+            // Добавяме заглавието на ролята с емоджи и списъка под него
+            descriptionLines.push(`${info.icon} **${info.label}**`);
+            descriptionLines.push(`${formattedHeroes}\n`);
         }
 
+        // Добавяме Culti V1 вариантите най-отдолу, ако има такива
         if (cultiKeys.length > 0) {
-            const cultiLines = cultiKeys.map(key => `**${cleanTitleName(heroesData[key].title)}** \`${key}\``).join("\n");
-            listEmbed.addFields({ name: "🟡 Culti V1 Variants", value: cultiLines, inline: false });
+            const cultiLines = cultiKeys.map(key => `**${cleanTitleName(heroesData[key].title)}** \`${key}\``).join(" • ");
+            descriptionLines.push(`🟡 **Culti V1 Variants**`);
+            descriptionLines.push(`${cultiLines}`);
         }
+
+        // Създаваме финалния Embed, като вкарваме събрания текст в .setDescription()
+        const listEmbed = new EmbedBuilder()
+            .setTitle("🗡️ OP: Sailing Kingdom — Hero Roster")
+            .setColor("#7F77DD")
+            .setDescription(descriptionLines.join("\n")) // Обединява всички редове с нов ред
+            .setTimestamp();
 
         return msg.reply({ embeds: [listEmbed] });
     }
+
 
     // ─────────────────────────────────────────────
     // !hero <name> — full hero build guide

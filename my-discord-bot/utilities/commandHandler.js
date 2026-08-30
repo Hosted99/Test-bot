@@ -218,7 +218,7 @@ async function handleCommands(msg, pool) {
         return msg.reply({ embeds: [listEmbed] });
     }
 
-        // ─────────────────────────────────────────────
+           // ─────────────────────────────────────────────
     // !hero <name> — full hero build guide
     // !hero <ime> — пълен билд на герой
     // ✅ MULTI-SERVER / МУЛТИ-СЪРВЪР: checks unit_build_channel from config
@@ -230,7 +230,7 @@ async function handleCommands(msg, pool) {
             : msg.channel.name.includes('unit-build');
 
         if (!isCorrectChannel) return msg.reply("❌ Use the configured unit-build channel!");
-        if (!args[0]) return msg.reply("⚠️ Specify hero! Example: `!hero mihawk`");
+        if (!args) return msg.reply("⚠️ Specify hero! Example: `!hero mihawk`");
 
         const heroesData = getHeroes();
         const inputName = args.join("-").toLowerCase();
@@ -243,26 +243,32 @@ async function handleCommands(msg, pool) {
         const info = ARCHETYPE_INFO[archetype];
         const rarity = extractRarity(hero.title);
         const cleanName = cleanTitleName(hero.title);
-        const subrole = (hero.role || "").split("/")[1] || "";
+        const subrole = (hero.role || "").split("/") || "";
 
-        // Инициализираме embed обекта
+        // Сглобяваме заглавието: Иконата и Името вляво, а ⭐`РАНГ` вдясно
+        let finalTitle = `${info.icon} ${cleanName}`;
+        if (rarity) {
+            // Текстът, който ще отиде в десния край (напр. ⭐`UR`)
+            const rarityTag = `⭐\`${rarity}\``;
+            
+            // Използваме специален празен символ \u00A0 за избутване вдясно.
+            // Намаляваме числото на 44, за да има място за целия таг и да не отиде на нов ред.
+            finalTitle = finalTitle.padEnd(44, '\u00A0') + rarityTag;
+        }
+
+        // Инициализираме embed обекта с новото заглавие
         const embed = new EmbedBuilder()
-            .setTitle(`${info.icon} ${cleanName}`)
+            .setTitle(finalTitle)
             .setColor(info.color)
             .setDescription(`${info.label}${subrole ? ` · ${subrole}` : ""}`);
 
-        // Вариант 2: Ако има ранг, го добавяме най-отгоре в Author полето
-        if (rarity) {
-            embed.setAuthor({ name: `⭐ Rarity: ${rarity}` });
-        }
-
-        // Закачаме основните полета директно към embed обекта
+        // Закачаме основните полета
         embed.addFields(
             { name: "🛡️ Equipment", value: hero.equipment || "---", inline: true },
             { name: "🧬 Haki Rec", value: hero.haki || "---", inline: true }
         );
 
-        // Всяко поле се добавя само ако реално има съдържание — без "N/A" филър
+        // Всяко поле се добавя само ако реално има съдержание — без "N/A" филър
         const chipFields = [
             { name: "📜 Seals", value: toChips(hero.seals) },
             { name: "✨ Extras", value: toChips(hero.extras) }
@@ -286,6 +292,7 @@ async function handleCommands(msg, pool) {
         if (hero.image && hero.image.startsWith('http')) embed.setImage(hero.image);
         return msg.channel.send({ embeds: [embed] });
     }
+
 
 
      

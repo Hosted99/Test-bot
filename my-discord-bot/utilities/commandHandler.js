@@ -218,7 +218,7 @@ async function handleCommands(msg, pool) {
         return msg.reply({ embeds: [listEmbed] });
     }
 
-           // ─────────────────────────────────────────────
+               // ─────────────────────────────────────────────
     // !hero <name> — full hero build guide
     // !hero <ime> — пълен билд на герой
     // ✅ MULTI-SERVER / МУЛТИ-СЪРВЪР: checks unit_build_channel from config
@@ -245,30 +245,24 @@ async function handleCommands(msg, pool) {
         const cleanName = cleanTitleName(hero.title);
         const subrole = (hero.role || "").split("/") || "";
 
-        // Сглобяваме заглавието: Иконата и Името вляво, а ⭐`РАНГ` вдясно
-        let finalTitle = `${info.icon} ${cleanName}`;
-        if (rarity) {
-            // Текстът, който ще отиде в десния край (напр. ⭐`UR`)
-            const rarityTag = `⭐\`${rarity}\``;
-            
-            // Използваме специален празен символ \u00A0 за избутване вдясно.
-            // Намаляваме числото на 44, за да има място за целия таг и да не отиде на нов ред.
-            finalTitle = finalTitle.padEnd(44, '\u00A0') + rarityTag;
-        }
-
-        // Инициализираме embed обекта с новото заглавие
+        // Създаваме embed-а БЕЗ Title, за да го заместим с перфектно подравнени inline полета
         const embed = new EmbedBuilder()
-            .setTitle(finalTitle)
             .setColor(info.color)
             .setDescription(`${info.label}${subrole ? ` · ${subrole}` : ""}`);
 
-        // Закачаме основните полета
+        // Добавяме Името вляво и Ранга със звезда вдясно на най-първия ред
+        embed.addFields(
+            { name: " ", value: `### ${info.icon} ${cleanName}`, inline: true },
+            { name: " ", value: rarity ? `### \u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0⭐ \`${rarity}\`` : " ", inline: true }
+        );
+
+        // На следващия ред слагаме Equipment и Haki
         embed.addFields(
             { name: "🛡️ Equipment", value: hero.equipment || "---", inline: true },
             { name: "🧬 Haki Rec", value: hero.haki || "---", inline: true }
         );
 
-        // Всяко поле се добавя само ако реално има съдержание — без "N/A" филър
+        // Всяко поле се добавя само ако реално има съдържание — без "N/A" филър
         const chipFields = [
             { name: "📜 Seals", value: toChips(hero.seals) },
             { name: "✨ Extras", value: toChips(hero.extras) }
@@ -292,6 +286,7 @@ async function handleCommands(msg, pool) {
         if (hero.image && hero.image.startsWith('http')) embed.setImage(hero.image);
         return msg.channel.send({ embeds: [embed] });
     }
+
 
 
 

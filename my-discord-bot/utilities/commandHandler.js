@@ -288,30 +288,40 @@ async function handleCommands(msg, pool) {
         return msg.channel.send({ embeds: [embed] });
     }
 
-        // ─────────────────────────────────────────────
-    // ВРЕМЕННА КОМАНДА ЗА ТЕСТ НА СТИЛОВЕТЕ
+           // ───────────ВРЕМЕННА КОМАНДА ЗА ТЕСТ НА СТИЛ──────
+    // ОБНОВЕНА КОМАНДА ЗА ТЕСТ НА ХОРИЗОНТАЛНИ СТИЛОВЕ
     // ─────────────────────────────────────────────
     if (cmd === "!test-style") {
+        
+        // Вариант 1: Всички думи са с плътен СИН фон в един общ блок
+        const style1Words = ["Mind", "Pierce", "Rage", "Fury", "Control", "Fistwind"]
+            .map(word => `\x1b[1;37;44m ${word} \x1b[0m`) // Бял текст на син фон
+            .join("  |  "); // Разделител
+
+        // Вариант 2: Всички думи са в квадратни скоби със СИНИ букви в един общ блок
+        const style2Words = ["Mind", "Pierce", "Rage", "Fury", "Control", "Fistwind"]
+            .map(word => `\x1b[1;34m[${word}]\x1b[0m`) // Само сини букви
+            .join("  |  "); // Разделител
+
         const testEmbed = new EmbedBuilder()
-            .setTitle("🧪 Тест на цветни Seals и Extras")
+            .setTitle("🧪 Тест на ХОРИЗОНТАЛНИ Seals и Extras")
             .setColor("#7F77DD")
             .addFields(
-                // ТЕСТ ЗА ВАРИАНТ 1 (Цветен фон)
                 { 
-                    name: "🔹 ВАРИАНТ 1: Изцяло цветен фон", 
-                    value: `\`\`\`ansi\n\x1b[1;37;44m Mind \x1b[0m\`\`\` | \`\`\`ansi\n\x1b[1;37;44m Pierce \x1b[0m\`\`\` | \`\`\`ansi\n\x1b[1;37;44m Rage \x1b[0m\`\`\``, 
+                    name: "🔹 ВАРИАНТ 1: Изцяло цветен фон (на един ред)", 
+                    value: `\`\`\`ansi\n${style1Words}\n\`\`\``, 
                     inline: false 
                 },
-                // ТЕСТ ЗА ВАРИАНТ 2 (Цветни букви)
                 { 
-                    name: "🔸 ВАРИАНТ 2: Сива кутийка с цветни букви", 
-                    value: `\`\`\`ansi\n\x1b[34mMind\x1b[0m\`\`\` | \`\`\`ansi\n\x1b[34mPierce\x1b[0m\`\`\` | \`\`\`ansi\n\x1b[34mRage\x1b[0m\`\`\``, 
+                    name: "🔸 ВАРИАНТ 2: Квадратни скоби с цветни букви (на един ред)", 
+                    value: `\`\`\`ansi\n${style2Words}\n\`\`\``, 
                     inline: false 
                 }
             );
 
         return msg.reply({ embeds: [testEmbed] });
     }
+
 
 
 

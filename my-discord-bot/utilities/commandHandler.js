@@ -218,7 +218,7 @@ async function handleCommands(msg, pool) {
         return msg.reply({ embeds: [listEmbed] });
     }
 
-    // ─────────────────────────────────────────────
+        // ─────────────────────────────────────────────
     // !hero <name> — full hero build guide
     // !hero <ime> — пълен билд на герой
     // ✅ MULTI-SERVER / МУЛТИ-СЪРВЪР: checks unit_build_channel from config
@@ -245,20 +245,22 @@ async function handleCommands(msg, pool) {
         const cleanName = cleanTitleName(hero.title);
         const subrole = (hero.role || "").split("/")[1] || "";
 
+        // Инициализираме embed обекта
         const embed = new EmbedBuilder()
-            .setTitle(`${info.icon} ${cleanName}${rarity ? ` \`${rarity}\`` : ""}`)
+            .setTitle(`${info.icon} ${cleanName}`)
             .setColor(info.color)
-            .setDescription(`${info.label}${subrole ? ` · ${subrole}` : ""}`)
+            .setDescription(`${info.label}${subrole ? ` · ${subrole}` : ""}`);
 
-                // Ако има ранг (SSR+/UR), го добавяме в най-горната част на съобщението
+        // Вариант 2: Ако има ранг, го добавяме най-отгоре в Author полето
         if (rarity) {
-        embed.setAuthor({ name: `⭐ Rarity: ${rarity}` });
+            embed.setAuthor({ name: `⭐ Rarity: ${rarity}` });
         }
-            
-            .addFields(
-                { name: "🛡️ Equipment", value: hero.equipment || "---", inline: true },
-                { name: "🧬 Haki Rec", value: hero.haki || "---", inline: true }
-            );
+
+        // Закачаме основните полета директно към embed обекта
+        embed.addFields(
+            { name: "🛡️ Equipment", value: hero.equipment || "---", inline: true },
+            { name: "🧬 Haki Rec", value: hero.haki || "---", inline: true }
+        );
 
         // Всяко поле се добавя само ако реално има съдържание — без "N/A" филър
         const chipFields = [
@@ -284,6 +286,7 @@ async function handleCommands(msg, pool) {
         if (hero.image && hero.image.startsWith('http')) embed.setImage(hero.image);
         return msg.channel.send({ embeds: [embed] });
     }
+
 
      
     // ─────────────────────────────────────────────

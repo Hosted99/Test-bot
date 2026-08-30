@@ -218,7 +218,7 @@ async function handleCommands(msg, pool) {
         return msg.reply({ embeds: [listEmbed] });
     }
 
-            // ─────────────────────────────────────────────
+    // ─────────────────────────────────────────────
     // !hero <name> — full hero build guide
     // !hero <ime> — пълен билд на герой
     // ✅ MULTI-SERVER / МУЛТИ-СЪРВЪР: checks unit_build_channel from config
@@ -245,46 +245,24 @@ async function handleCommands(msg, pool) {
         const cleanName = cleanTitleName(hero.title);
         const subrole = (hero.role || "").split("/")[1] || "";
 
-        // Подравняваме заглавието и описанието (точно като на снимката от началото)
         const embed = new EmbedBuilder()
             .setTitle(`${info.icon} ${cleanName}${rarity ? ` \`${rarity}\`` : ""}`)
             .setColor(info.color)
-            .setDescription(`*${info.label}${subrole ? ` · ${subrole}` : ""}*\n\u200b`);
+            .setDescription(`${info.label}${subrole ? ` · ${subrole}` : ""}`)
+            .addFields(
+                { name: "🛡️ Equipment", value: hero.equipment || "---", inline: true },
+                { name: "🧬 Haki Rec", value: hero.haki || "---", inline: true }
+            );
 
-        // Еквипмънт и Хаки в две успоредни колони на един ред (inline: true)
-        embed.addFields(
-            { name: "Equipment", value: `**${hero.equipment || "---"}**`, inline: true },
-            { name: "Haki order", value: `**${hero.haki || "---"}**`, inline: true }
-        );
-
-                // 📜 СИН ПЛЪТЕН ФОН за Seals (на един общ ред)
-        if (hero.seals) {
-            // Ако е текст, го разделяме по запетайки и махаме излишните интервали
-            const sealsArray = typeof hero.seals === 'string' 
-                ? hero.seals.split(",").map(s => s.trim()) 
-                : hero.seals;
-
-            if (sealsArray.length > 0 && sealsArray[0] !== "") {
-                const blueChips = sealsArray.map(seal => `\x1b[1;37;44m ${seal} \x1b[0m`).join("  |  ");
-                embed.addFields({ name: "\u200b\n📜 Seals", value: `\`\`\`ansi\n${blueChips}\n\`\`\``, inline: false });
-            }
+        // Всяко поле се добавя само ако реално има съдържание — без "N/A" филър
+        const chipFields = [
+            { name: "📜 Seals", value: toChips(hero.seals) },
+            { name: "✨ Extras", value: toChips(hero.extras) }
+        ];
+        for (const f of chipFields) {
+            if (f.value) embed.addFields({ name: f.name, value: f.value, inline: false });
         }
 
-        // ✨ ЧЕРВЕН ПЛЪТЕН ФОН за Extras (на един общ ред)
-        if (hero.extras) {
-            // Ако е текст, го разделяме по запетайки и махаме излишните интервали
-            const extrasArray = typeof hero.extras === 'string' 
-                ? hero.extras.split(",").map(e => e.trim()) 
-                : hero.extras;
-
-            if (extrasArray.length > 0 && extrasArray[0] !== "") {
-                const redChips = extrasArray.map(extra => `\x1b[1;37;41m ${extra} \x1b[0m`).join("  |  ");
-                embed.addFields({ name: "✨ Extras", value: `\`\`\`ansi\n${redChips}\n\`\`\``, inline: false });
-            }
-        }
-
-
-        // Останалите стандартни полета от оригиналния ти код
         const plainFields = [
             { name: "🍎 Devil Fruit", value: hero.devil_fruit },
             { name: "🍊 2nd Devil Fruit", value: hero.secondary_fruit },
@@ -292,17 +270,14 @@ async function handleCommands(msg, pool) {
             { name: "✒️ Signature", value: hero.signature },
             { name: "💎 Treasure", value: hero.treasure }
         ];
-
         for (const f of plainFields) {
             if (f.value) embed.addFields({ name: f.name, value: f.value, inline: false });
         }
 
-        // Задаване на изображение, ако има такова
+        // Only set image if it's a valid URL / Само ако е валиден URL
         if (hero.image && hero.image.startsWith('http')) embed.setImage(hero.image);
-        
         return msg.channel.send({ embeds: [embed] });
     }
-
 
      
     // ─────────────────────────────────────────────

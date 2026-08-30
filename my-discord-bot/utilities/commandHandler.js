@@ -627,4 +627,31 @@ async function handleCommands(msg, pool) {
     }
 }
 
+
+    // ─────────────────────────────────────────────
+    // ВРЕМЕННА КОМАНДА ЗА ТЕСТ НА СТИЛОВЕТЕ
+    // ─────────────────────────────────────────────
+    if (cmd === "!test-style") {
+        const testEmbed = new EmbedBuilder()
+            .setTitle("🧪 Тест на цветни Seals и Extras")
+            .setColor("#7F77DD")
+            .addFields(
+                // ТЕСТ ЗА ВАРИАНТ 1 (Цветен фон)
+                { 
+                    name: "🔹 ВАРИАНТ 1: Изцяло цветен фон", 
+                    value: `\`\`\`ansi\n\x1b[1;37;44m Mind \x1b[0m\`\`\` | \`\`\`ansi\n\x1b[1;37;44m Pierce \x1b[0m\`\`\` | \`\`\`ansi\n\x1b[1;37;44m Rage \x1b[0m\`\`\``, 
+                    inline: false 
+                },
+                // ТЕСТ ЗА ВАРИАНТ 2 (Цветни букви)
+                { 
+                    name: "🔸 ВАРИАНТ 2: Сива кутийка с цветни букви", 
+                    value: `\`\`\`ansi\n\x1b[34mMind\x1b[0m\`\`\` | \`\`\`ansi\n\x1b[34mPierce\x1b[0m\`\`\` | \`\`\`ansi\n\x1b[34mRage\x1b[0m\`\`\``, 
+                    inline: false 
+                }
+            );
+
+        return msg.reply({ embeds: [testEmbed] });
+    }
+
+
 module.exports = { handleCommands };

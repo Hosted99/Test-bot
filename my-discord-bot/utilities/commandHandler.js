@@ -250,7 +250,7 @@ async function handleCommands(msg, pool) {
             .setColor(info.color)
             .setDescription(`${info.label}${subrole ? ` · ${subrole}` : ""}`)
             .addFields(
-                { name: "🛡️ Equipment", value: hero.equipment || "---", inline: true },
+                { name: "👕 Equipment", value: hero.equipment || "---", inline: true },
                 { name: "🧬 Haki Rec", value: hero.haki || "---", inline: true }
             );
  

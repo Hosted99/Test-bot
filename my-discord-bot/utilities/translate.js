@@ -148,7 +148,17 @@ CRITICAL RULES:
 3. WATCH OUT FOR FALSE POSITIVES: German, Dutch, and other Germanic languages often contain short words that LOOK like English (e.g. German "man", "das", "war", "sich", "gut", "an", "in", "ist") but are NOT English. Do not classify a message as English just because it contains a few such short, English-looking words. Judge the sentence as a WHOLE — if the overall grammar and word combination isn't valid English, it is NOT English, even if isolated words resemble English ones.
 4. Keep the translation exact. Do not change words. Do not rewrite slang.
 5. If a third-person pronoun's gender is not actually determinable from the source language's grammar (e.g. a possessive like Italian "suo/sua" that agrees with the grammatical gender of the object owned, not the gender of the person it belongs to), translate it as "he/she" instead of guessing a single gender.
-6. Output ONLY the word SKIP or the raw translation. No quotes, no explanations.`;
+6. Output ONLY the word SKIP or the raw translation. No quotes, no explanations.
+
+EXAMPLES (follow this exact pattern):
+Input: "Na das hört sich gut an, muss man sich nicht mehr einen in Englisch abmachen."
+Output: That sounds good, no need to arrange one in English anymore.
+
+Input: "Das was ich oben geschrieben hatte konnte er nicht übersetzen, war das zu lang?"
+Output: What I wrote above, he couldn't translate it, was that too long?
+
+Input: "bro that's so real lol"
+Output: SKIP`;
 
             const result = await groq.chat.completions.create({
                 messages: [
@@ -156,13 +166,21 @@ CRITICAL RULES:
                     { role: "user", content: cleanText }
                 ],
                 model: "qwen/qwen3.6-27b",
-                reasoning_effort: "default", // "low" не се поддържа от Groq за този модел (само "none" или "default") — "default" дава разсъждение, за разлика от "none"
+                reasoning_effort: "none", // връщаме на "none" — "default" пали вътрешен <think> процес, който трябваше да се чисти отделно; вместо reasoning, компенсираме с конкретни примери в промпта по-горе
                 temperature: 0.0, // ВАЖНО: Пълна нула! Премахва всякакво филмиране и пренаписване от страна на ИИ
                 max_tokens: 150
             });
 
-            const translated = result.choices[0].message.content.trim();
-            
+            let translated = result.choices[0].message.content.trim();
+
+            // ✅ Премахваме вътрешния "мисловен процес" на модела (<think>...</think>),
+            // който идва ПРЕДИ реалния превод, когато reasoning_effort не е "none"
+            translated = translated.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+
+            // Ако <think> блокът е бил отрязан по средата (недовършен, без затваряща тагче),
+            // не можем да сме сигурни какво остава след него — по-безопасно е да пропуснем.
+            if (/<think>/i.test(translated)) return;
+
             // Ако ни върне SKIP (или моделът се е опитал да напише "SKIP."), спираме
             if (!translated || translated.toUpperCase().includes('SKIP')) return;
 

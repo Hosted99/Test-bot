@@ -11,10 +11,10 @@ const lastWelcomeMessage = new Map();
 const BOUNTY_STEP = 50000000; // 50M
 const BOUNTY_FLOOR = 50000000; // под 50M няма роля / below 50M no role
 
-function getBountyTierName(amount) {
+function getBountyTierName(amount, label = "Bounty") {
   if (amount < BOUNTY_FLOOR) return null;
   const tierM = Math.floor(amount / BOUNTY_STEP) * (BOUNTY_STEP / 1000000);
-  return `Bounty: ${tierM}M+`;
+  return `${label}: ${tierM}M+`;
 }
 
 /**
@@ -247,8 +247,10 @@ async function handleRoleCommands(msg, cmd, args) {
 async function updateBountyRole(member, amount) {
     if (!member) return null;
     try {
-        const newRoleName = getBountyTierName(amount);
-        const currentBountyRoles = member.roles.cache.filter(r => r.name.startsWith("Bounty: "));
+        const label = (await getConfig(member.guild.id, 'bounty_role_label')) || 'Bounty';
+        const rolePrefix = `${label}: `;
+        const newRoleName = getBountyTierName(amount, label);
+        const currentBountyRoles = member.roles.cache.filter(r => r.name.startsWith(rolePrefix));
         if (newRoleName && member.roles.cache.some(r => r.name === newRoleName)) return newRoleName;
         if (currentBountyRoles.size > 0) await member.roles.remove(currentBountyRoles);
         if (newRoleName) {

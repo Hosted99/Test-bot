@@ -248,6 +248,17 @@ repair @Sunny                                      ← usage (any member)
 !resetbounty @user                   ← reset to ฿0 (Mod/Admin)
 ```
 
+Every 50M crossed automatically assigns a tier role, named `Bounty: <N>M+` by
+default (e.g. `Bounty: 250M+`). The role must already exist on the server
+with that exact name, or the bot won't find it to assign.
+
+If your server's roles use a different word instead of "Bounty" (e.g.
+`RP: 250M+`), change the label with:
+```
+!setconfig bounty_role_label RP   ← roles become "RP: <N>M+" instead of "Bounty: <N>M+"
+```
+Defaults to `Bounty` if never set.
+
 ---
 
 ### 🤖 AI Chat — Password Activation
@@ -602,6 +613,17 @@ repair @Sunny                                      ← използване (о�
 !setbounty @user 500000000           ← задава bounty (Мод/Админ)
 !resetbounty @user                   ← нулира до ฿0 (Мод/Админ)
 ```
+
+При всеки 50M bounty автоматично се дава tier роля, наречена по подразбиране
+`Bounty: <N>M+` (напр. `Bounty: 250M+`). Ролята трябва вече да съществува на
+сървъра с точно това име, иначе ботът няма да я намери, за да я даде.
+
+Ако ролите на твоя сървър използват друга дума вместо "Bounty" (напр.
+`RP: 250M+`), смени думата с:
+```
+!setconfig bounty_role_label RP   ← ролите стават "RP: <N>M+" вместо "Bounty: <N>M+"
+```
+По подразбиране е `Bounty`, ако никога не е задавано.
 
 ---
 

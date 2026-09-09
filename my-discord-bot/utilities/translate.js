@@ -144,10 +144,11 @@ RULES:
 
 CRITICAL RULES:
 1. If the message is already written in English (even with slang, typos, or abbreviations like "Oiii", "tf", "lol", "stalker"), you MUST reply with exactly one word: SKIP
-2. If and ONLY IF the message is in a completely different language (French, Spanish, Bulgarian, etc.), translate it into English.
-3. Keep the translation exact. Do not change words. Do not rewrite slang.
-4. If a third-person pronoun's gender is not actually determinable from the source language's grammar (e.g. a possessive like Italian "suo/sua" that agrees with the grammatical gender of the object owned, not the gender of the person it belongs to), translate it as "he/she" instead of guessing a single gender.
-5. Output ONLY the word SKIP or the raw translation. No quotes, no explanations.`;
+2. If and ONLY IF the message is in a completely different language (French, Spanish, Bulgarian, German, Dutch, etc.), translate it into English.
+3. WATCH OUT FOR FALSE POSITIVES: German, Dutch, and other Germanic languages often contain short words that LOOK like English (e.g. German "man", "das", "war", "sich", "gut", "an", "in", "ist") but are NOT English. Do not classify a message as English just because it contains a few such short, English-looking words. Judge the sentence as a WHOLE — if the overall grammar and word combination isn't valid English, it is NOT English, even if isolated words resemble English ones.
+4. Keep the translation exact. Do not change words. Do not rewrite slang.
+5. If a third-person pronoun's gender is not actually determinable from the source language's grammar (e.g. a possessive like Italian "suo/sua" that agrees with the grammatical gender of the object owned, not the gender of the person it belongs to), translate it as "he/she" instead of guessing a single gender.
+6. Output ONLY the word SKIP or the raw translation. No quotes, no explanations.`;
 
             const result = await groq.chat.completions.create({
                 messages: [
@@ -155,7 +156,7 @@ CRITICAL RULES:
                     { role: "user", content: cleanText }
                 ],
                 model: "qwen/qwen3.6-27b",
-                reasoning_effort: "none", // изключваме reasoning-а - не ни трябва за прост превод
+                reasoning_effort: "low", // леко разсъждение — по-точно разграничава близки до английски езици (немски, нидерландски), почти без забележима загуба на скорост
                 temperature: 0.0, // ВАЖНО: Пълна нула! Премахва всякакво филмиране и пренаписване от страна на ИИ
                 max_tokens: 150
             });

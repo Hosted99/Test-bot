@@ -31,6 +31,20 @@ const COOLDOWN_MS = 4000;
 
 const SKIP_CHANNEL_NAMES = ['ai-translator', 'bot-', 'admin', 'log', 'status'];
 
+// Ключ в guild_config, под който пазим ID-та на допълнителни канали за игнориране, разделени със запетая.
+const IGNORE_CHANNELS_CONFIG_KEY = 'translate_ignore_channels';
+
+/**
+ * Взима списъка от ID-та на ръчно добавени игнорирани канали за даден сървър.
+ * @param {string} guildId
+ * @returns {Promise<string[]>}
+ */
+async function getIgnoredChannelIds(guildId) {
+    const raw = await getConfig(guildId, IGNORE_CHANNELS_CONFIG_KEY);
+    if (!raw) return [];
+    return raw.split(',').map(id => id.trim()).filter(Boolean);
+}
+
 function initTranslateSystem(client) {
 
     // ─────────────────────────────────────────────
@@ -105,6 +119,9 @@ RULES:
         const channelName = message.channel.name.toLowerCase();
         if (SKIP_CHANNEL_NAMES.some(skip => channelName.includes(skip))) return;
 
+        const ignoredChannelIds = await getIgnoredChannelIds(message.guild.id);
+        if (ignoredChannelIds.includes(message.channel.id)) return;
+
         const text = message.content?.trim();
         if (!text || text.length < 3) return;
 
@@ -164,4 +181,4 @@ CRITICAL RULES:
     console.log('✅ Translation systems ready (Optimized Groq engine).');
 }
 
-module.exports = { initTranslateSystem };
+module.exports = { initTranslateSystem, getIgnoredChannelIds, IGNORE_CHANNELS_CONFIG_KEY };

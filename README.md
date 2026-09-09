@@ -259,6 +259,15 @@ If your server's roles use a different word instead of "Bounty" (e.g.
 ```
 Defaults to `Bounty` if never set.
 
+If your server's roles step by a different amount (e.g. every 100M instead
+of every 50M), change the step with:
+```
+!setconfig bounty_role_step 100   ← tiers become 100M+, 200M+, 300M+... instead of 50M+, 100M+, 150M+...
+```
+Defaults to `50` if never set. **Important:** roles for every tier at that
+step (e.g. `Bounty: 100M+`, `Bounty: 200M+`, ...) must already exist on the
+server with the exact matching name, or the bot won't find them to assign.
+
 ---
 
 ### 🤖 AI Chat — Password Activation
@@ -624,6 +633,16 @@ repair @Sunny                                      ← използване (о�
 !setconfig bounty_role_label RP   ← ролите стават "RP: <N>M+" вместо "Bounty: <N>M+"
 ```
 По подразбиране е `Bounty`, ако никога не е задавано.
+
+Ако ролите на твоя сървър скачат на друга стъпка (напр. на всеки 100M
+вместо на всеки 50M), смени стъпката с:
+```
+!setconfig bounty_role_step 100   ← tier-овете стават 100M+, 200M+, 300M+... вместо 50M+, 100M+, 150M+...
+```
+По подразбиране е `50`, ако никога не е задавано. **Важно:** ролите за всеки
+tier на тази стъпка (напр. `Bounty: 100M+`, `Bounty: 200M+`, ...) трябва вече
+да съществуват на сървъра с точно съвпадащо име, иначе ботът няма да ги
+намери, за да ги даде.
 
 ---
 

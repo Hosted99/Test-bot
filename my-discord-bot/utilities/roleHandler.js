@@ -254,11 +254,16 @@ async function updateBountyRole(member, amount) {
         const rolePrefix = `${label}: `;
         const newRoleName = getBountyTierName(amount, label, stepM);
         const currentBountyRoles = member.roles.cache.filter(r => r.name.startsWith(rolePrefix));
-        if (newRoleName && member.roles.cache.some(r => r.name === newRoleName)) return newRoleName;
+
+        // ✅ startsWith, не === — покрива роли с добавени емоджита/декорации след "M+"
+        // (напр. "RP: 600M+🔥🔥🔥"), не само точното "RP: 600M+"
+        const alreadyHasRole = newRoleName ? member.roles.cache.find(r => r.name.startsWith(newRoleName)) : null;
+        if (alreadyHasRole) return alreadyHasRole.name;
+
         if (currentBountyRoles.size > 0) await member.roles.remove(currentBountyRoles);
         if (newRoleName) {
-            const roleToGive = member.guild.roles.cache.find(r => r.name === newRoleName);
-            if (roleToGive) { await member.roles.add(roleToGive); return newRoleName; }
+            const roleToGive = member.guild.roles.cache.find(r => r.name.startsWith(newRoleName));
+            if (roleToGive) { await member.roles.add(roleToGive); return roleToGive.name; }
         }
     } catch (err) { console.error("Bounty Role Update Error:", err.message); }
     return null;

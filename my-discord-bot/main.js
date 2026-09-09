@@ -443,6 +443,7 @@ client.on("messageCreate", async (msg) => {
                 "`unit_build_channel` — channel for !hero commands\n" +
                 "`bounty_channel` — channel for !wanted posters\n" +
                 "`bounty_role_label` — word used for bounty role names, e.g. `RP` → `RP: 250M+` (optional, default `Bounty`)\n" +
+                "`bounty_role_step` — bounty tier step in millions, e.g. `100` → tiers every 100M (optional, default `50`)\n" +
                 "`rookies_role` — role for new members\n" +
                 "`player_role` — role given after verification\n" +
                 "`mod_role` — role for moderators\n" +
@@ -843,6 +844,7 @@ client.on("messageCreate", async (msg) => {
                 { key: "bounty_upload_channel",       desc: "Auto-detect bounty from any screenshot posted here (optional)", type: "channel", optional: true },
                 { key: "translate_ignore_channels",   desc: "Extra channels ignored by the auto-translator, manage with !ignoretranslate-add/remove (optional)", type: "channel_list", optional: true },
                 { key: "bounty_role_label",           desc: "Word used for bounty role names, e.g. 'RP' → 'RP: 250M+' (optional, default 'Bounty')", type: "text", optional: true },
+                { key: "bounty_role_step",             desc: "Bounty tier step in millions, e.g. '100' → tiers every 100M (optional, default '50')", type: "text", optional: true },
             ];
 
             const { EmbedBuilder } = require("discord.js");

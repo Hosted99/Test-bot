@@ -80,8 +80,16 @@ Non-English message → English translation below it. **Does not disappear.**
 !auto-translate-enable <password>   ← activate for THIS server
 !auto-translate-disable             ← disable (Admin only)
 ```
-Works in **all channels** except `#ai-translator` and admin channels.
+Works in **all channels** except `#ai-translator` and admin channels, plus any
+channels added to the ignore list below.
 Ignores: `!` commands, very short messages, mostly Latin text.
+
+**Extra ignored channels (Admin only):**
+```
+!ignoretranslate-add <#channel>      ← stop auto-translating in this channel
+!ignoretranslate-remove <#channel>   ← resume auto-translating in this channel
+!ignoretranslate-list                ← show extra ignored channels
+```
 
 #### 3. AI Channel Translator (#translator_channel)
 For conversation between people speaking different languages.
@@ -427,8 +435,16 @@ Settings → Advanced → Developer Mode → десен клик на канал
 !auto-translate-enable <парола>   ← активира за ТОЗИ сървър
 !auto-translate-disable           ← спира (само Админ)
 ```
-Работи в **всички канали** освен `#ai-translator` и admin канали.
+Работи в **всички канали** освен `#ai-translator` и admin канали, плюс всеки
+канал, добавен в списъка с игнорирани канали по-долу.
 Игнорира: команди с `!`, много кратки съобщения, предимно латински текст.
+
+**Допълнителни игнорирани канали (само Админ):**
+```
+!ignoretranslate-add <#канал>      ← спира авто-превода в този канал
+!ignoretranslate-remove <#канал>   ← връща авто-превода в този канал
+!ignoretranslate-list              ← показва допълнителните игнорирани канали
+```
 
 #### 3. AI Канален преводач (#translator_channel)
 За разговор между хора на различни езици.

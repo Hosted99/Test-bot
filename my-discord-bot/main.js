@@ -646,6 +646,48 @@ client.on("messageCreate", async (msg) => {
             }
         }
 
+        if (cmd === "!ignoretranslate-add" || cmd === "!ignoretranslate-remove") {
+            // ✅ Добавя/маха канал от списъка с игнорирани от авто-преводача канали (само Admin)
+            if (!msg.member.permissions.has('Administrator')) {
+                return msg.reply("❌ Only administrators can configure the bot.");
+            }
+            const { getIgnoredChannelIds, IGNORE_CHANNELS_CONFIG_KEY } = require('./utilities/translate.js');
+            const target = msg.mentions.channels.first() || msg.guild.channels.cache.get(args[0]);
+            if (!target) {
+                return msg.reply(`❌ Format: \`${cmd} #channel\` or \`${cmd} <channel_id>\``);
+            }
+
+            const ids = await getIgnoredChannelIds(msg.guild.id);
+
+            if (cmd === "!ignoretranslate-add") {
+                if (ids.includes(target.id)) {
+                    return msg.reply(`ℹ️ ${target} is already ignored by the auto-translator.`);
+                }
+                ids.push(target.id);
+                await setConfig(msg.guild.id, IGNORE_CHANNELS_CONFIG_KEY, ids.join(','), msg.guild.name);
+                return msg.reply(`✅ ${target} will now be ignored by the auto-translator.`);
+            }
+
+            if (!ids.includes(target.id)) {
+                return msg.reply(`ℹ️ ${target} isn't on the auto-translator ignore list.`);
+            }
+            const updated = ids.filter(id => id !== target.id);
+            await setConfig(msg.guild.id, IGNORE_CHANNELS_CONFIG_KEY, updated.join(','), msg.guild.name);
+            return msg.reply(`✅ ${target} removed from the auto-translator ignore list.`);
+        }
+
+        if (cmd === "!ignoretranslate-list") {
+            if (!msg.member.permissions.has('Administrator')) {
+                return msg.reply("❌ Only administrators can configure the bot.");
+            }
+            const { getIgnoredChannelIds } = require('./utilities/translate.js');
+            const ids = await getIgnoredChannelIds(msg.guild.id);
+            if (ids.length === 0) {
+                return msg.reply("ℹ️ No extra channels are currently ignored by the auto-translator (besides the default ai-translator/admin/log/status ones).");
+            }
+            return msg.reply(`🌐 Channels ignored by the auto-translator: ${ids.map(id => `<#${id}>`).join(', ')}`);
+        }
+
         if (cmd === "!sendbday") {
             // ✅ Ръчно изпращане на birthday съобщение веднага (не чака 08:30 cron-а)
             // Manually send the birthday message right now (doesn't wait for the 08:30 cron)
@@ -798,6 +840,7 @@ client.on("messageCreate", async (msg) => {
                 { key: "blacklist_channel",          desc: "Belly Rush blacklist embed",     type: "channel", optional: true },
                 { key: "ship_status_channel",        desc: "Fixed channel for !shipstatus (optional, else uses current channel)", type: "channel", optional: true },
                 { key: "bounty_upload_channel",       desc: "Auto-detect bounty from any screenshot posted here (optional)", type: "channel", optional: true },
+                { key: "translate_ignore_channels",   desc: "Extra channels ignored by the auto-translator, manage with !ignoretranslate-add/remove (optional)", type: "channel_list", optional: true },
             ];
 
             const { EmbedBuilder } = require("discord.js");
@@ -811,6 +854,9 @@ client.on("messageCreate", async (msg) => {
                     let display = value;
                     if (item.type === "channel") display = `<#${value}>`;
                     else if (item.type === "role") display = `<@&${value}>`;
+                    else if (item.type === "channel_list") {
+                        display = value.split(',').map(id => `<#${id.trim()}>`).filter(Boolean).join(', ');
+                    }
                     configured.push(`✅ \`${item.key}\` — ${display}`);
                 } else if (item.optional) {
                     optional.push(`⚪ \`${item.key}\` — ${item.desc}`);

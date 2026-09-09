@@ -6,14 +6,14 @@ const { getConfig, getRole, getChannel } = require('./guildConfig');
 
 const lastWelcomeMessage = new Map();
 
-// ✅ Без таван: изчислява tier динамично на стъпки от 50M (50M+, 100M+, ... 1000M+, 1050M+, безкрайно нагоре)
-// No cap: dynamically computes the bounty tier in 50M steps, scales infinitely
-const BOUNTY_STEP = 50000000; // 50M
-const BOUNTY_FLOOR = 50000000; // под 50M няма роля / below 50M no role
+// ✅ Без таван: изчислява tier динамично на стъпки от <bounty_role_step>M (по подразбиране 50M)
+// No cap: dynamically computes the bounty tier in <bounty_role_step>M steps (default 50M), scales infinitely
+const DEFAULT_BOUNTY_STEP_M = 50; // стъпка в милиони, ако сървъра не е задал друга / step in millions, if server hasn't set its own
 
-function getBountyTierName(amount, label = "Bounty") {
-  if (amount < BOUNTY_FLOOR) return null;
-  const tierM = Math.floor(amount / BOUNTY_STEP) * (BOUNTY_STEP / 1000000);
+function getBountyTierName(amount, label = "Bounty", stepM = DEFAULT_BOUNTY_STEP_M) {
+  const stepAmount = stepM * 1000000;
+  if (amount < stepAmount) return null;
+  const tierM = Math.floor(amount / stepAmount) * stepM;
   return `${label}: ${tierM}M+`;
 }
 
@@ -248,8 +248,11 @@ async function updateBountyRole(member, amount) {
     if (!member) return null;
     try {
         const label = (await getConfig(member.guild.id, 'bounty_role_label')) || 'Bounty';
+        const stepRaw = await getConfig(member.guild.id, 'bounty_role_step');
+        const parsedStep = parseInt(stepRaw, 10);
+        const stepM = (Number.isFinite(parsedStep) && parsedStep > 0) ? parsedStep : DEFAULT_BOUNTY_STEP_M;
         const rolePrefix = `${label}: `;
-        const newRoleName = getBountyTierName(amount, label);
+        const newRoleName = getBountyTierName(amount, label, stepM);
         const currentBountyRoles = member.roles.cache.filter(r => r.name.startsWith(rolePrefix));
         if (newRoleName && member.roles.cache.some(r => r.name === newRoleName)) return newRoleName;
         if (currentBountyRoles.size > 0) await member.roles.remove(currentBountyRoles);

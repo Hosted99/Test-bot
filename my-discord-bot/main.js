@@ -329,6 +329,18 @@ client.on("messageCreate", async (msg) => {
             const author = msg.author;
             const member = msg.member;
 
+            // Домейни, на които вярваме безусловно (GIF доставчици и т.н.) —
+            // линковете им НЕ се трият и НЕ се пращат за проверка във VirusTotal.
+            // Добавяй нов домейн тук като нов елемент в масива (само частта от домейна е достатъчна,
+            // напр. "klipy" покрива klipy.com, media.klipy.com, api.klipy.com и т.н.)
+            const LINK_SCAN_WHITELIST = ['klipy'];
+            let isWhitelistedLink = false;
+            try {
+                const hostname = new URL(foundLinks[0]).hostname.toLowerCase();
+                isWhitelistedLink = LINK_SCAN_WHITELIST.some(domain => hostname.includes(domain.toLowerCase()));
+            } catch (_) { /* невалиден URL — оставяме isWhitelistedLink = false, проверява се нормално */ }
+            if (isWhitelistedLink) return;
+
             // 1. Изтриване на оригиналното съобщение на момента
             await msg.delete().catch(() => {});
 

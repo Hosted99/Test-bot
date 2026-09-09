@@ -156,7 +156,7 @@ CRITICAL RULES:
                     { role: "user", content: cleanText }
                 ],
                 model: "qwen/qwen3.6-27b",
-                reasoning_effort: "low", // леко разсъждение — по-точно разграничава близки до английски езици (немски, нидерландски), почти без забележима загуба на скорост
+                reasoning_effort: "default", // "low" не се поддържа от Groq за този модел (само "none" или "default") — "default" дава разсъждение, за разлика от "none"
                 temperature: 0.0, // ВАЖНО: Пълна нула! Премахва всякакво филмиране и пренаписване от страна на ИИ
                 max_tokens: 150
             });

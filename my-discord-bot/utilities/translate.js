@@ -21,6 +21,54 @@ async function translateWithGemini(systemPrompt, userText) {
 }
 
 // ─────────────────────────────────────────────
+// Локален (безплатен, без AI) филтър — прихваща очевидно английските
+// съобщения ПРЕДИ да похарчим AI заявка. Само съмнителните случаи стигат до Groq/Gemini.
+// ─────────────────────────────────────────────
+const FOREIGN_DIACRITICS_REGEX = /[äöüßàâçéèêëîïôùûÿñíóúãõşğ]/i;
+
+// Общ списък за процентното съвпадение — премахнати са думи, които са ИСТИНСКИ
+// еднакви думи в немски/нидерландски (man, in, an, of, was, will, her, we, is),
+// за да не наддуват изкуствено резултата за чужд текст.
+const COMMON_ENGLISH_WORDS = new Set([
+    'the','be','to','and','a','that','have','i','it','for','not','with','he','as','you','do','at',
+    'this','but','his','by','from','they','say','she','or','my','one','all','would','there',
+    'their','what','so','up','out','if','about','who','get','which','go','me','when','make','can','like','time',
+    'no','just','him','know','take','people','into','year','your','good','some','could','them','see','other','than',
+    'then','now','look','only','come','its','over','think','also','back','after','use','two','how','our','work',
+    'first','well','way','even','new','want','because','any','these','give','day','most','us','are',
+    'were','been','has','had','did','does','am','im','dont','doesnt','didnt','cant','wont','isnt','arent','thats',
+    'youre','theyre','hes','shes','ive','youve','weve','theyve','ill','youll','hell','shell',
+    'theyll','id','youd','hed','shed','wed','theyd','yeah','yes','ok','okay','lol','lmao','bro','dude',
+    'thanks','thank','please','sorry','hi','hey','hello','bye','cool','nice','great','bad','love','hate',
+    'need','got','going','gonna','wanna','gotta','really','very','too','still','never',
+    'always','maybe','probably','actually','literally','right','wrong','sure','fine','stop','wait','let','lets'
+]);
+
+// "Сигурни" маркери — думи/съкращения, които реално НЕ съществуват като думи в немски/нидерландски.
+// Трябва да има поне 1 такава в съобщението, иначе не сме достатъчно уверени, че е английски.
+const STRONG_ENGLISH_MARKERS = new Set([
+    'dont','doesnt','didnt','cant','wont','isnt','arent','thats','youre','theyre','hes','shes',
+    'ive','youve','weve','theyve','ill','youll','hell','shell','theyll','id','youd','hed','shed','wed','theyd',
+    'lol','lmao','bro','dude','gonna','wanna','gotta','yeah','okay','thanks','thank','please','sorry',
+    'hey','hello','bye','the','you','your','really','actually','literally','probably','maybe',
+    'love','hate','good','cool','nice','great','right','wrong','sure','fine','stop','wait','lets',
+    'need','want','got','going','still','never','always','because','people','something','anything','nothing','everything'
+]);
+
+function isConfidentlyEnglish(text) {
+    if (FOREIGN_DIACRITICS_REGEX.test(text)) return false; // немски/френски/испански и т.н. букви — сигурно не е английски
+
+    const words = (text.toLowerCase().match(/[a-z']+/g) || []).map(w => w.replace(/'/g, ''));
+    if (words.length < 2) return false; // прекалено кратко, за да сме сигурни — оставяме AI да реши
+
+    const hasStrongMarker = words.some(w => STRONG_ENGLISH_MARKERS.has(w));
+    if (!hasStrongMarker) return false; // няма нито една дума, която да е ГАРАНТИРАНО английска — към AI
+
+    const matches = words.filter(w => COMMON_ENGLISH_WORDS.has(w)).length;
+    return (matches / words.length) >= 0.6; // 60%+ чести английски думи → достатъчно уверени
+}
+
+// ─────────────────────────────────────────────
 // Flag emoji → language name mapping
 // ─────────────────────────────────────────────
 const FLAG_TO_LANGUAGE = {
@@ -150,6 +198,9 @@ RULES:
             .trim();
             
         if (!cleanText || cleanText.length < 3) return;
+
+        // 🛡️ Локална проверка БЕЗ AI — ако е очевидно английски, спираме тук, без да харчим заявка/токени
+        if (isConfidentlyEnglish(cleanText)) return;
 
         if (autoTranslateCooldown.has(message.author.id)) return;
         autoTranslateCooldown.set(message.author.id, true);

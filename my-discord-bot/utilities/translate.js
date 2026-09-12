@@ -1,7 +1,24 @@
 const Groq = require("groq-sdk");
+const axios = require("axios");
 const { getConfig, setConfig } = require("./guildConfig");
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+// ─────────────────────────────────────────────
+// Gemini fallback — ползва се САМО когато Groq удари rate limit (429)
+// ─────────────────────────────────────────────
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite'; // ⚠️ провери точния model id в Google AI Studio, ако не работи
+
+async function translateWithGemini(systemPrompt, userText) {
+    if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY не е зададен в .env');
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${process.env.GEMINI_API_KEY}`;
+    const { data } = await axios.post(url, {
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ role: 'user', parts: [{ text: userText }] }],
+        generationConfig: { temperature: 0, maxOutputTokens: 150 }
+    }, { timeout: 10000 });
+    return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || null;
+}
 
 // ─────────────────────────────────────────────
 // Flag emoji → language name mapping
@@ -139,39 +156,47 @@ RULES:
         setTimeout(() => autoTranslateCooldown.delete(message.author.id), COOLDOWN_MS);
 
         try {
-            // Брутално директен и агресивен промпт
-            const systemPrompt = `You are a strict language filter. Your ONLY job is to detect if a message is in English or not.
+            // Кратък промпт — пази цялата логика, по-малко токени на заявка
+            const systemPrompt = `Language filter. If the message is already English (slang/typos OK), reply exactly: SKIP
+Otherwise translate it to English — exact meaning, keep slang, output ONLY the translation, no quotes/explanations.
+Don't be fooled by short English-looking words in other languages (German "das/man/war/sich", Spanish "si/lo/en", French "en/si/que") — judge the WHOLE sentence's grammar, not isolated words.
+Unclear pronoun gender (e.g. Italian "suo/sua") → use "he/she".
 
-CRITICAL RULES:
-1. If the message is already written in English (even with slang, typos, or abbreviations like "Oiii", "tf", "lol", "stalker"), you MUST reply with exactly one word: SKIP
-2. If and ONLY IF the message is in a completely different language (French, Spanish, Bulgarian, German, Dutch, etc.), translate it into English.
-3. WATCH OUT FOR FALSE POSITIVES: German, Dutch, and other Germanic languages often contain short words that LOOK like English (e.g. German "man", "das", "war", "sich", "gut", "an", "in", "ist") but are NOT English. Do not classify a message as English just because it contains a few such short, English-looking words. Judge the sentence as a WHOLE — if the overall grammar and word combination isn't valid English, it is NOT English, even if isolated words resemble English ones.
-4. Keep the translation exact. Do not change words. Do not rewrite slang.
-5. If a third-person pronoun's gender is not actually determinable from the source language's grammar (e.g. a possessive like Italian "suo/sua" that agrees with the grammatical gender of the object owned, not the gender of the person it belongs to), translate it as "he/she" instead of guessing a single gender.
-6. Output ONLY the word SKIP or the raw translation. No quotes, no explanations.
+Ex: "Na das hört sich gut an, muss man sich nicht mehr einen in Englisch abmachen." → That sounds good, no need to arrange one in English anymore.
+Ex: "Hablo 4 lenguas entonces puedo mismo hablar español si lo quieres" → I speak 4 languages so I can even speak Spanish if you want.
+Ex: "bro that's so real lol" → SKIP`;
 
-EXAMPLES (follow this exact pattern):
-Input: "Na das hört sich gut an, muss man sich nicht mehr einen in Englisch abmachen."
-Output: That sounds good, no need to arrange one in English anymore.
+            let rawOutput = null;
+            try {
+                const result = await groq.chat.completions.create({
+                    messages: [
+                        { role: "system", content: systemPrompt },
+                        { role: "user", content: cleanText }
+                    ],
+                    model: "qwen/qwen3.6-27b",
+                    reasoning_effort: "none", // връщаме на "none" — "default" пали вътрешен <think> процес, който трябваше да се чисти отделно; вместо reasoning, компенсираме с конкретни примери в промпта по-горе
+                    temperature: 0.0, // ВАЖНО: Пълна нула! Премахва всякакво филмиране и пренаписване от страна на ИИ
+                    max_tokens: 150
+                });
+                rawOutput = result.choices[0].message.content.trim();
+            } catch (groqErr) {
+                const isRateLimited = groqErr?.status === 429 || /rate_limit_exceeded/i.test(groqErr?.message || '');
+                if (!isRateLimited) {
+                    console.error('Auto translate (Groq) error:', groqErr.message);
+                    return;
+                }
+                // 🔄 Groq му е дошъл лимитът за деня/минутата — прехвърляме тази заявка на Gemini
+                console.warn(`[Translate] Groq лимит достигнат — превключвам временно на Gemini (${GEMINI_MODEL}) за тази заявка.`);
+                try {
+                    rawOutput = await translateWithGemini(systemPrompt, cleanText);
+                } catch (geminiErr) {
+                    console.error('Auto translate (Gemini fallback) error:', geminiErr.message);
+                    return;
+                }
+            }
 
-Input: "Das was ich oben geschrieben hatte konnte er nicht übersetzen, war das zu lang?"
-Output: What I wrote above, he couldn't translate it, was that too long?
-
-Input: "bro that's so real lol"
-Output: SKIP`;
-
-            const result = await groq.chat.completions.create({
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: cleanText }
-                ],
-                model: "qwen/qwen3.6-27b",
-                reasoning_effort: "none", // връщаме на "none" — "default" пали вътрешен <think> процес, който трябваше да се чисти отделно; вместо reasoning, компенсираме с конкретни примери в промпта по-горе
-                temperature: 0.0, // ВАЖНО: Пълна нула! Премахва всякакво филмиране и пренаписване от страна на ИИ
-                max_tokens: 150
-            });
-
-            let translated = result.choices[0].message.content.trim();
+            if (!rawOutput) return;
+            let translated = rawOutput.trim();
 
             // ✅ Премахваме вътрешния "мисловен процес" на модела (<think>...</think>),
             // който идва ПРЕДИ реалния превод, когато reasoning_effort не е "none"

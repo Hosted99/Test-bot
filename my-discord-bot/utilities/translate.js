@@ -5,7 +5,7 @@ const { getConfig, setConfig } = require("./guildConfig");
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 // ─────────────────────────────────────────────
-// Gemini fallback — ползва се САМО когато Groq удари rate limit (429)
+// Gemini fallback — ползва се САМО когато Groq удари rate limit (429)9
 // ─────────────────────────────────────────────
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite'; // ⚠️ провери точния model id в Google AI Studio, ако не работи
 

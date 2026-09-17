@@ -1001,7 +1001,7 @@ client.on("messageCreate", async (msg) => {
                     { role: "system", content: "Analyze language. If the text is English, respond with {\"isEnglish\": true}. If NOT English, translate to English and respond ONLY JSON: {\"isEnglish\": boolean, \"detectedLang\": \"Language Name\", \"translatedText\": \"...\"}" },
                     { role: "user", content: cleanedText }
                 ],
-                model: "meta-llama/llama-4-scout-17b-16e-instruct",
+                model: "qwen/qwen3.8-27b",
                 response_format: { type: "json_object" }
             });
 
@@ -1031,7 +1031,7 @@ client.on("messageCreate", async (msg) => {
                                 { role: "system", content: `Translate to ${targetLang}. Only translation.` },
                                 { role: "user", content: cleanedText }
                             ],
-                            model: "llama-3.3-70b-versatile"
+                            model: "qwen/qwen3.8-27b"
                         });
                         await msg.reply(`🌍 **To ${targetLang}:** ${backResult.choices[0].message.content}`);
                     }

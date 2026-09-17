@@ -152,7 +152,7 @@ RULES:
                     { role: "system", content: systemPrompt },
                     { role: "user", content: messageContent }
                 ],
-                model: "qwen/qwen3.6-27b",
+                model: "qwen/qwen3.8-27b",
                 reasoning_effort: "none", // изключваме reasoning-а - не ни трябва за прост превод
                 temperature: 0.3, // Ниска температура = по-точен и малко "сух" превод без измислици
                 max_tokens: 400
@@ -225,7 +225,7 @@ Ex: "I answe you i am the only who can sail at every times, i dont have any prob
                         { role: "system", content: systemPrompt },
                         { role: "user", content: cleanText }
                     ],
-                    model: "qwen/qwen3.6-27b",
+                    model: "qwen/qwen3.8-27b",
                     reasoning_effort: "none", // връщаме на "none" — "default" пали вътрешен <think> процес, който трябваше да се чисти отделно; вместо reasoning, компенсираме с конкретни примери в промпта по-горе
                     temperature: 0.0, // ВАЖНО: Пълна нула! Премахва всякакво филмиране и пренаписване от страна на ИИ
                     max_tokens: 150
@@ -233,12 +233,17 @@ Ex: "I answe you i am the only who can sail at every times, i dont have any prob
                 rawOutput = result.choices[0].message.content.trim();
             } catch (groqErr) {
                 const isRateLimited = groqErr?.status === 429 || /rate_limit_exceeded/i.test(groqErr?.message || '');
-                if (!isRateLimited) {
+                // Груповите модели понякога изчезват без предупреждение (decommission/preview snapshot смяна) —
+                // тогава API-то връща 404 model_not_found. Третираме го като fallback случай, не само rate limit,
+                // иначе преводът просто спира да работи мълчаливо докато някой не забележи логовете.
+                const isModelGone = groqErr?.status === 404 || /model_not_found/i.test(groqErr?.code || groqErr?.message || '');
+                if (!isRateLimited && !isModelGone) {
                     console.error('Auto translate (Groq) error:', groqErr.message);
                     return;
                 }
-                // 🔄 Groq му е дошъл лимитът за деня/минутата — прехвърляме тази заявка на Gemini
-                console.warn(`[Translate] Groq лимит достигнат — превключвам временно на Gemini (${GEMINI_MODEL}) за тази заявка.`);
+                // 🔄 Groq му е дошъл лимитът, или моделът вече не съществува — прехвърляме тази заявка на Gemini
+                const reason = isRateLimited ? 'лимит достигнат' : 'моделът вече не съществува (404)';
+                console.warn(`[Translate] Groq ${reason} — превключвам временно на Gemini (${GEMINI_MODEL}) за тази заявка.`);
                 try {
                     rawOutput = await translateWithGemini(systemPrompt, cleanText);
                 } catch (geminiErr) {

@@ -18,7 +18,7 @@ const { handleSpecialChannels } = require("./utilities/specialChannels");
 const { handleNewMember, handleRoleCommands } = require("./utilities/roleHandler");
 const { sendBotManual } = require("./utilities/infoHandler");
 const { logDeletedMessage } = require("./utilities/logger");
-const { initTranslateSystem } = require('./utilities/translate');
+const { initTranslateSystem, translateWithGemini, isGroqFallbackTrigger, GEMINI_MODEL } = require('./utilities/translate');
 const memeSystem = require('./utilities/meme.js');
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
@@ -996,16 +996,33 @@ client.on("messageCreate", async (msg) => {
         if (translationCooldown.has(msg.author.id)) return;
 
         try {
-            const analysis = await groq.chat.completions.create({
-                messages: [
-                    { role: "system", content: "Analyze language. If the text is English, respond with {\"isEnglish\": true}. If NOT English, translate to English and respond ONLY JSON: {\"isEnglish\": boolean, \"detectedLang\": \"Language Name\", \"translatedText\": \"...\"}" },
-                    { role: "user", content: cleanedText }
-                ],
-                model: "qwen/qwen3.8-27b",
-                response_format: { type: "json_object" }
-            });
+            const languageAnalysisSystemPrompt = "Analyze language. If the text is English, respond with {\"isEnglish\": true}. If NOT English, translate to English and respond ONLY JSON: {\"isEnglish\": boolean, \"detectedLang\": \"Language Name\", \"translatedText\": \"...\"}";
 
-            const data = JSON.parse(analysis.choices[0].message.content);
+            let analysisRawOutput = null;
+            try {
+                const analysis = await groq.chat.completions.create({
+                    messages: [
+                        { role: "system", content: languageAnalysisSystemPrompt },
+                        { role: "user", content: cleanedText }
+                    ],
+                    model: "qwen/qwen3.8-27b",
+                    response_format: { type: "json_object" },
+                    max_tokens: 600 // ⚠️ ВАЖНО: без таван, дълги съобщения могат да надхвърлят OTPM (output tokens/минута) лимита и да гръмнат 429
+                });
+                analysisRawOutput = analysis.choices[0].message.content;
+            } catch (groqErr) {
+                if (!isGroqFallbackTrigger(groqErr)) { console.error("Groq error:", groqErr.message); return; }
+                console.warn(`[Translator channel] Groq недостъпен (${groqErr.status || groqErr.message}) — превключвам на Gemini (${GEMINI_MODEL}) за тази заявка.`);
+                try {
+                    analysisRawOutput = await translateWithGemini(languageAnalysisSystemPrompt, cleanedText, true);
+                } catch (geminiErr) {
+                    console.error("Translator channel (Gemini fallback) error:", geminiErr.message);
+                    return;
+                }
+            }
+            if (!analysisRawOutput) return;
+
+            const data = JSON.parse(analysisRawOutput);
 
             if (data.isEnglish && !msg.reference) return;
 
@@ -1026,14 +1043,31 @@ client.on("messageCreate", async (msg) => {
                     );
                     if (res.rows.length > 0) {
                         const targetLang = res.rows[0].last_lang;
-                        const backResult = await groq.chat.completions.create({
-                            messages: [
-                                { role: "system", content: `Translate to ${targetLang}. Only translation.` },
-                                { role: "user", content: cleanedText }
-                            ],
-                            model: "qwen/qwen3.8-27b"
-                        });
-                        await msg.reply(`🌍 **To ${targetLang}:** ${backResult.choices[0].message.content}`);
+                        const backSystemPrompt = `Translate to ${targetLang}. Only translation.`;
+
+                        let backTranslated = null;
+                        try {
+                            const backResult = await groq.chat.completions.create({
+                                messages: [
+                                    { role: "system", content: backSystemPrompt },
+                                    { role: "user", content: cleanedText }
+                                ],
+                                model: "qwen/qwen3.8-27b",
+                                max_tokens: 400
+                            });
+                            backTranslated = backResult.choices[0].message.content;
+                        } catch (groqErr2) {
+                            if (!isGroqFallbackTrigger(groqErr2)) { console.error("Reply translation error:", groqErr2.message); return; }
+                            console.warn(`[Translator channel] Groq недостъпен (${groqErr2.status || groqErr2.message}) — превключвам на Gemini (${GEMINI_MODEL}) за обратния превод.`);
+                            try {
+                                backTranslated = await translateWithGemini(backSystemPrompt, cleanedText, false);
+                            } catch (geminiErr2) {
+                                console.error("Reply translation (Gemini fallback) error:", geminiErr2.message);
+                                return;
+                            }
+                        }
+                        if (!backTranslated) return;
+                        await msg.reply(`🌍 **To ${targetLang}:** ${backTranslated}`);
                     }
                 } catch (err) { console.error("Reply translation error:", err.message); }
             }

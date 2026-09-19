@@ -9,15 +9,25 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 // ─────────────────────────────────────────────
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite'; // ⚠️ провери точния model id в Google AI Studio, ако не работи
 
-async function translateWithGemini(systemPrompt, userText) {
+async function translateWithGemini(systemPrompt, userText, jsonMode = false) {
     if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY не е зададен в .env');
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${process.env.GEMINI_API_KEY}`;
+    const generationConfig = { temperature: 0, maxOutputTokens: 150 };
+    if (jsonMode) generationConfig.responseMimeType = 'application/json'; // за JSON structured output (напр. language detection)
     const { data } = await axios.post(url, {
         systemInstruction: { parts: [{ text: systemPrompt }] },
         contents: [{ role: 'user', parts: [{ text: userText }] }],
-        generationConfig: { temperature: 0, maxOutputTokens: 150 }
+        generationConfig
     }, { timeout: 10000 });
     return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || null;
+}
+
+// Помощна функция за трети файлове (напр. main.js) — еднакво разпознава rate-limit (429) и
+// изчезнал/decommissioned модел (404 model_not_found), за да решат дали да минат на Gemini fallback.
+function isGroqFallbackTrigger(err) {
+    const isRateLimited = err?.status === 429 || /rate_limit_exceeded/i.test(err?.message || '');
+    const isModelGone = err?.status === 404 || /model_not_found/i.test(err?.code || err?.message || '');
+    return isRateLimited || isModelGone;
 }
 
 // ─────────────────────────────────────────────
@@ -282,4 +292,4 @@ Ex: "I answe you i am the only who can sail at every times, i dont have any prob
     console.log('✅ Translation systems ready (Optimized Groq engine).');
 }
 
-module.exports = { initTranslateSystem, getIgnoredChannelIds, IGNORE_CHANNELS_CONFIG_KEY };
+module.exports = { initTranslateSystem, getIgnoredChannelIds, IGNORE_CHANNELS_CONFIG_KEY, translateWithGemini, isGroqFallbackTrigger, GEMINI_MODEL };

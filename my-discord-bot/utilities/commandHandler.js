@@ -57,6 +57,57 @@ function toChips(pipeStr) {
 }
 
 
+// ─────────────────────────────────────────────
+// Long / multi-line message helpers for !say and !sendto
+// Помощни функции за дълги съобщения с нови редове
+// ─────────────────────────────────────────────
+const DISCORD_LIMIT = 1900; // safe margin under 2000
+
+function splitText(text, max) {
+    const chunks = [];
+    let cur = "";
+    const push = () => { if (cur) { chunks.push(cur); cur = ""; } };
+    for (let line of text.split("\n")) {
+        while (line.length > max) {
+            push();
+            chunks.push(line.slice(0, max));
+            line = line.slice(max);
+        }
+        if (cur.length + line.length + 1 > max) push();
+        cur += (cur ? "\n" : "") + line;
+    }
+    push();
+    return chunks;
+}
+
+async function sendLong(channel, text, wrap) {
+    const max = wrap ? DISCORD_LIMIT - 8 : DISCORD_LIMIT;
+    for (const chunk of splitText(text, max)) {
+        await channel.send(wrap ? "```\n" + chunk + "\n```" : chunk);
+    }
+}
+
+// Reads optional -c / --code flag and an attached .txt/.md file
+// Чете флаг -c / --code и прикачен .txt/.md файл
+async function resolveText(msg, rawText) {
+    let text = rawText;
+    let wrap = false;
+    const flag = text.match(/^(--code|-c)(?=\s|$)\s*/i);
+    if (flag) { wrap = true; text = text.slice(flag[0].length); }
+
+    const file = msg.attachments.find(a => /\.(txt|md)$/i.test(a.name || ""));
+    if (file) {
+        try {
+            const res = await fetch(file.url);
+            const fileText = await res.text();
+            text = text ? `${text}\n${fileText}` : fileText;
+        } catch (err) {
+            console.error("Attachment read failed:", err);
+        }
+    }
+    return { text: text.trim(), wrap };
+}
+
 async function handleCommands(msg, pool) {
     const content = msg.content.trim();
     const args = content.split(/\s+/);
@@ -126,7 +177,7 @@ async function handleCommands(msg, pool) {
                 },
                 {
                     name: "🧹 Moderation (Admin)",
-                    value: "• `!clear <1-100>` — Bulk delete messages\n• `!say <text>` — Send a message as the bot\n• `!sendto #channel <text>` — Send to a specific channel"
+                    value: "• `!clear <1-100>` — Bulk delete messages\n• `!say <text>` — Send a message as the bot (multi-line, `-c` = code block, or attach a .txt)\n• `!sendto #channel <text>` — Send to a specific channel (same options)"
                 },
                 {
                     name: "⚙️ Server Config (Admin)",
@@ -389,10 +440,12 @@ async function handleCommands(msg, pool) {
         if (!msg.member.permissions.has("Administrator")) {
             return msg.reply("🏴‍☠️ Only the Captain (Administrator) can use this!");
         }
-        const text = args.join(" ");
-        if (!text) return msg.reply("❌ Example: `!say Ahoy Pirates!`");
+        // raw text keeps line breaks (args.join would flatten them)
+        const rawText = content.slice(cmd.length).trim();
+        const { text, wrap } = await resolveText(msg, rawText);
+        if (!text) return msg.reply("❌ Example: `!say Ahoy Pirates!` (or attach a .txt file)");
         try { await msg.delete(); } catch (err) {}
-        return msg.channel.send(text);
+        return sendLong(msg.channel, text, wrap);
     }
 
     // ─────────────────────────────────────────────
@@ -405,11 +458,13 @@ async function handleCommands(msg, pool) {
                 .then(m => setTimeout(() => { m.delete().catch(() => {}); msg.delete().catch(() => {}); }, 2000));
         }
         const targetChannel = msg.mentions.channels.first();
-        const text = args.slice(1).join(" ");
+        // raw text keeps line breaks; strip the leading #channel mention
+        const rawText = content.slice(cmd.length).trim().replace(/^<#\d+>\s*/, "");
+        const { text, wrap } = await resolveText(msg, rawText);
         if (!targetChannel) return msg.reply("❌ You must mention a channel!").then(m => setTimeout(() => { m.delete().catch(() => {}); msg.delete().catch(() => {}); }, 2000));
         if (!text) return msg.reply("❌ Please provide a message!").then(m => setTimeout(() => { m.delete().catch(() => {}); msg.delete().catch(() => {}); }, 2000));
         try {
-            await targetChannel.send(text);
+            await sendLong(targetChannel, text, wrap);
             const replyMsg = await msg.reply(`✅ Message sent to ${targetChannel}`);
             setTimeout(() => { replyMsg.delete().catch(() => {}); msg.delete().catch(() => {}); }, 3000);
         } catch (err) {

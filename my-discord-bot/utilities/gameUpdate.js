@@ -1,5 +1,5 @@
 // utilities/gameUpdate.js
-// Следи version_config.json на играта и праща DM на собственика при ъпдейт.
+// Следи version_config.json на играта и праща съобщение в канала game_update_channel.
 // Не използва базата (Neon) - състоянието е само в паметта.
 
 const ROOT = 'http://jbhzgmcdn.lxld668.com';
@@ -54,12 +54,21 @@ async function loadList(cfg) {
     return out;
 }
 
-async function dm(client, userId, text) {
-    const user = await client.users.fetch(userId);
-    await user.send(text.slice(0, 1990));
+// праща съобщение в конфигурирания канал (game_update_channel) на всеки сървър
+async function send(client, getChannel, text) {
+    let sent = 0;
+    for (const guild of client.guilds.cache.values()) {
+        const channel = await getChannel(guild, 'game_update_channel').catch(() => null);
+        if (!channel) continue;
+        await channel.send(text.slice(0, 1990))
+            .then(() => sent++)
+            .catch((e) => console.error(`gameUpdate send (${guild.name}):`, e.message));
+    }
+    if (!sent) console.log('ℹ️ gameUpdate: няма конфигуриран game_update_channel, съобщението не е изпратено.');
+    return sent;
 }
 
-async function check(client, userId) {
+async function check(client, getChannel) {
     try {
         const cfg = await getJson(CFG);
         failures = 0;
@@ -110,21 +119,21 @@ async function check(client, userId) {
         last = cfg;
         if (!changes.length) return;
 
-        await dm(client, userId, `🔔 **Излезе ъпдейт!** (${changes.join(', ')})`);
-        for (const p of parts) await dm(client, userId, p);
+        await send(client, getChannel, `🔔 **Излезе ъпдейт!** (${changes.join(', ')})`);
+        for (const p of parts) await send(client, getChannel, p);
     } catch (e) {
         failures++;
         console.error('gameUpdate:', e.message);
         if (failures >= FAIL_WARN_AT && !warned) {
             warned = true;
             try {
-                await dm(client, userId, '⚠️ Не мога да прочета данните на играта от около час. Домейнът може да е сменен.');
+                await send(client, getChannel, '⚠️ Не мога да прочета данните на играта от около час. Домейнът може да е сменен.');
             } catch {}
         }
     }
 }
 
-module.exports = function startGameUpdateWatcher(client, userId) {
-    check(client, userId);
-    setInterval(() => check(client, userId), INTERVAL);
+module.exports = function startGameUpdateWatcher(client, getChannel) {
+    check(client, getChannel);
+    setInterval(() => check(client, getChannel), INTERVAL);
 };

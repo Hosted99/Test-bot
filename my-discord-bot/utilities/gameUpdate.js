@@ -80,6 +80,15 @@ async function check(client, getChannel) {
             files = await loadList(cfg);
             try { lastMaint = latestMaintenance(await getJson(fill(cfg.noticeUrl, ''))); } catch {}
             console.log('🎮 Game update watcher: baseline saved.');
+
+            // ТЕСТОВ РЕЖИМ (GAMEUPDATE_TEST=1): преструва се, че има ъпдейт
+            if (process.env.GAMEUPDATE_TEST) {
+                last = { ...cfg, forceRes: '0', notice: '0' };
+                lastMaint = null;
+                for (const k of Object.keys(files).slice(0, 3)) delete files[k];
+                console.log('🧪 Game update watcher: TEST mode, fake update in 10s.');
+                setTimeout(() => check(client, getChannel), 10 * 1000);
+            }
             return;
         }
 

@@ -20,6 +20,7 @@ const { sendBotManual } = require("./utilities/infoHandler");
 const { logDeletedMessage } = require("./utilities/logger");
 const { initTranslateSystem, translateWithGemini, isGroqFallbackTrigger, GEMINI_MODEL } = require('./utilities/translate');
 const memeSystem = require('./utilities/meme.js');
+const startGameUpdateWatcher = require('./utilities/gameUpdate.js'); // 🎮 Следи за ъпдейти на играта → game_update_channel
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 const translationCooldown = new Set();
@@ -136,6 +137,9 @@ client.once("clientReady", async () => {
     initTranslateSystem(client); 
     startBirthdayTimer(client); // ✅ FIX: този ред липсваше — birthday cron никога не се стартираше
     console.log(`🤖 Online as: ${client.user.tag}`);
+
+    // 🎮 Известия за ъпдейти на играта → канал `game_update_channel` (без база)
+    startGameUpdateWatcher(client, getChannel);
 
     // Кеширане на потребителите във всички сървъри
     client.guilds.cache.forEach(guild => {
@@ -451,6 +455,7 @@ client.on("messageCreate", async (msg) => {
                 "`repair_channel` — channel for ship-repairs\n" +
                 "`translator_channel` — channel for AI translation\n" +
                 "`bot_status_channel` — channel for Online/Offline status\n" +
+                "`game_update_channel` — channel for game update alerts (optional)\n" +
                 "`bot_info_channel` — channel for bot command manuals\n" +
                 "`unit_build_channel` — channel for !hero commands\n" +
                 "`bounty_channel` — channel for !wanted posters\n" +
@@ -839,6 +844,7 @@ client.on("messageCreate", async (msg) => {
                 { key: "repair_channel",            desc: "Repair-ship deck",            type: "channel" },
                 { key: "translator_channel",        desc: "AI Translator room",          type: "channel" },
                 { key: "bot_status_channel",        desc: "Online/Offline status",       type: "channel" },
+                { key: "game_update_channel",       desc: "Game update alerts",          type: "channel", optional: true },
                 { key: "bot_info_channel",          desc: "Command manuals channel",     type: "channel" },
                 { key: "unit_build_channel",        desc: "!hero commands arena",        type: "channel" },
                 { key: "bounty_channel",            desc: "!wanted posters board",       type: "channel" },

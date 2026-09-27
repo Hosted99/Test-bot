@@ -75,7 +75,7 @@ function isConfidentlyEnglish(text) {
     if (!hasStrongMarker) return false; // няма нито една дума, която да е ГАРАНТИРАНО английска — към AI
 
     const matches = words.filter(w => COMMON_ENGLISH_WORDS.has(w)).length;
-    return (matches / words.length) >= 0.6; // 60%+ чести английски думи → достатъчно уверени
+    return (matches / words.length) >= 0.5; // 50%+ чести английски думи → достатъчно уверени (сваляно от 0.6, защото разговорен/счупен английски пада под 0.6 и стигаше до AI, което после го "поправяше")
 }
 
 // ─────────────────────────────────────────────
@@ -218,7 +218,16 @@ RULES:
 
         try {
             // Кратък промпт — пази цялата логика, по-малко токени на заявка
-            const systemPrompt = `Language filter. If the message is already English — even with spelling mistakes, missing punctuation, or broken/non-native grammar (common from non-native speakers) — reply exactly: SKIP. Never "correct", clean up, or fix English text — SKIP means leave it exactly as-is, untouched.
+            const systemPrompt = `You are a TRANSLATOR, not a proofreader or English teacher. Your only job is to decide: is this message already English, or is it a different language?
+
+If the message is already English — no matter how broken, misspelled, badly ordered, or non-native it sounds — reply exactly: SKIP. This includes:
+- Wrong word order (e.g. "he asked me did i stop" instead of "he asked me if I had stopped")
+- Missing/wrong verb tense or conjugation ("I answe you", "we was")
+- Typos, missing punctuation, dropped articles, run-on sentences
+- ANY grammar mistake at all, as long as every word is English
+Broken English is still English. Do NOT rewrite it, do NOT "clean it up" into correct grammar, do NOT paraphrase it more clearly. SKIP means output nothing changes — leave the message completely untouched.
+
+Only translate if the message is actually written in a different language.
 Otherwise translate it to English — exact meaning, keep slang, output ONLY the translation, no quotes/explanations.
 Don't be fooled by short English-looking words in other languages (German "das/man/war/sich", Spanish "si/lo/en", French "en/si/que") — judge the WHOLE sentence's grammar, not isolated words.
 Unclear pronoun gender (e.g. Italian "suo/sua") → use "he/she".
@@ -226,7 +235,10 @@ Unclear pronoun gender (e.g. Italian "suo/sua") → use "he/she".
 Ex: "Na das hört sich gut an, muss man sich nicht mehr einen in Englisch abmachen." → That sounds good, no need to arrange one in English anymore.
 Ex: "Hablo 4 lenguas entonces puedo mismo hablar español si lo quieres" → I speak 4 languages so I can even speak Spanish if you want.
 Ex: "bro that's so real lol" → SKIP
-Ex: "I answe you i am the only who can sail at every times, i dont have any problem, we talk about keep one last atack" → SKIP`;
+Ex: "I answe you i am the only who can sail at every times, i dont have any problem, we talk about keep one last atack" → SKIP
+Ex: "Remember when he asked me did i stop being a victim.. I answered only g** are victims.." → SKIP
+Ex: "we was talking bout this yesterday but he never called me back tho" → SKIP
+Ex: "why u even care its not that deep bro" → SKIP`;
 
             let rawOutput = null;
             try {

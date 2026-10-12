@@ -2,6 +2,7 @@ const { EmbedBuilder } = require("discord.js");
 const fs = require('fs');
 const path = require('path');
 const staticReminders = require("../data/staticReminders");
+const maintenanceMessages = require("../data/maintenanceMessages");
 const { isValidCron } = require("./scheduler");
 const { updateBountyRole } = require("./roleHandler");
 const { buildBountyUpdateEmbed } = require("./bountyEmbed");
@@ -177,7 +178,7 @@ async function handleCommands(msg, pool) {
                 },
                 {
                     name: "🧹 Moderation (Admin)",
-                    value: "• `!clear <1-100>` — Bulk delete messages\n• `!say <text>` — Send a message as the bot (multi-line, `-c` = code block, or attach a .txt)\n• `!sendto #channel <text>` — Send to a specific channel (same options)"
+                    value: "• `!clear <1-100>` — Bulk delete messages\n• `!say <text>` — Send a message as the bot (multi-line, `-c` = code block, or attach a .txt)\n• `!sendto #channel <text>` — Send to a specific channel (same options)\n• `!maintenance` — Post a random \"bot is on a break\" message"
                 },
                 {
                     name: "⚙️ Server Config (Admin)",
@@ -446,6 +447,20 @@ async function handleCommands(msg, pool) {
         if (!text) return msg.reply("❌ Example: `!say Ahoy Pirates!` (or attach a .txt file)");
         try { await msg.delete(); } catch (err) {}
         return sendLong(msg.channel, text, wrap);
+    }
+
+    // ─────────────────────────────────────────────
+    // !maintenance — post a random "bot is on a break" message
+    // !maintenance — изпраща случайно съобщение, че ботът е в почивка
+    // ─────────────────────────────────────────────
+    if (cmd === "!maintenance") {
+        if (!msg.member.permissions.has("Administrator")) {
+            return msg.reply("🏴‍☠️ Only the Captain (Administrator) can use this!")
+                .then(m => setTimeout(() => { m.delete().catch(() => {}); msg.delete().catch(() => {}); }, 2000));
+        }
+        const text = maintenanceMessages[Math.floor(Math.random() * maintenanceMessages.length)];
+        try { await msg.delete(); } catch (err) {}
+        return msg.channel.send(text);
     }
 
     // ─────────────────────────────────────────────

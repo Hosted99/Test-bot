@@ -453,14 +453,14 @@ async function handleCommands(msg, pool) {
     // !maintenance — post a random "bot is on a break" message
     // !maintenance — изпраща случайно съобщение, че ботът е в почивка
     // ─────────────────────────────────────────────
-    if (cmd === "!maintenance") {
+    if (["!maintenance", "!maitance", "!maintance", "!maitenance", "!maintenence"].includes(cmd)) {
         if (!msg.member.permissions.has("Administrator")) {
             return msg.reply("🏴‍☠️ Only the Captain (Administrator) can use this!")
                 .then(m => setTimeout(() => { m.delete().catch(() => {}); msg.delete().catch(() => {}); }, 2000));
         }
         const text = maintenanceMessages[Math.floor(Math.random() * maintenanceMessages.length)];
         try { await msg.delete(); } catch (err) {}
-        return msg.channel.send(text);
+        return msg.channel.send({ content: `@everyone\n${text}`, allowedMentions: { parse: ["everyone"] } });
     }
 
     // ─────────────────────────────────────────────
